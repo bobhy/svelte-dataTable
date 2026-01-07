@@ -1,4 +1,3 @@
-// NOTE: This file is a copy of DatagridTypes.ts with renamed identifiers.
 export interface DataTableColumn {
     name: string;
     title?: string;

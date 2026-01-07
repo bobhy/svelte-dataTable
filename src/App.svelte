@@ -1,6 +1,6 @@
 <script lang="ts">
-  import DataTable from '$lib/components/ui/datagrid/DataTable.svelte';
-  import type { DataTableConfig } from '$lib/components/ui/datagrid/DataTableTypes';
+  import DataTable from '$lib/components/ui/datatable/DataTable.svelte';
+  import type { DataTableConfig } from '$lib/components/ui/datatable/DataTableTypes';
 
   // Sample data and config for testing
   const config: DataTableConfig = {
