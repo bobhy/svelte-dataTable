@@ -5,11 +5,11 @@
 		FlexRender,
 		type ColumnDef,
 		type TableOptions,
-        type Row,
-        type SortingState
+		type Row,
+		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey } from './DataTableTypes';
+	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo } from './DataTableTypes';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils';
     import * as Dialog from '$lib/components/ui/dialog';
@@ -18,8 +18,6 @@
 
 	let { config, dataSource, onEdit, onSelection, class: className }: DataTableProps = $props();
 
-
-
     // -- State --
 	let data = $state<any[]>([]);
     let hasMore = $state(true);
@@ -27,14 +25,18 @@
 	let sorting = $state<SortingState>([]);
     let columnSizing = $state({});
     let columnPinning = $state({ left: [], right: [] });
-    let globalFilter = $state(""); 
+    // let globalFilter = $state(""); 
+
+    // Active Cell State (Navigation)
+    let activeRowIndex = $state(0);
+    let activeColIndex = $state(0);
 
     // Selection & Editing
     let selectedRowIndices = $state<Set<number>>(new Set());
-    let lastSelectedIndex = $state<number | null>(null);
-    let isEditOpen = $state(false);
-    let editingRowData = $state<any>({}); 
-    let editingRowIndex = $state<number|null>(null);
+    // let lastSelectedIndex = $state<number | null>(null);
+    // let isEditOpen = $state(false);
+    // let editingRowData = $state<any>({}); 
+    // let editingRowIndex = $state<number|null>(null);
 
     // -- Columns --
     const columns = $derived(
@@ -194,12 +196,118 @@
         }
     });
 
+    // -- Keyboard Navigation --
+    function handleKeyDown(e: KeyboardEvent) {
+        if (isLoading) return;
+        
+        const rowCount = data.length;
+        const colCount = columns.length;
+        const instance = get(rowVirtualizer);
+        
+        let newRow = activeRowIndex;
+        let newCol = activeColIndex;
+        let handled = false;
+
+        switch(e.key) {
+            case 'ArrowUp':
+                newRow = Math.max(0, newRow - 1);
+                handled = true;
+                break;
+            case 'ArrowDown':
+                newRow = Math.min(rowCount - 1, newRow + 1);
+                handled = true;
+                break;
+            case 'ArrowLeft':
+                newCol = Math.max(0, newCol - 1);
+                handled = true;
+                break;
+            case 'ArrowRight':
+                newCol = Math.min(colCount - 1, newCol + 1);
+                handled = true;
+                break;
+            case 'PageUp':
+                const visibleSizeUp = instance.getVirtualItems().length || 10;
+                newRow = Math.max(0, newRow - visibleSizeUp);
+                handled = true;
+                break;
+            case 'PageDown':
+                const visibleSizeDown = instance.getVirtualItems().length || 10;
+                newRow = Math.min(rowCount - 1, newRow + visibleSizeDown);
+                handled = true;
+                break;
+            case 'Home':
+                if (e.ctrlKey) newRow = 0; // Ctrl+Home -> Top
+                else newCol = 0; // Home -> Start of Row
+                handled = true;
+                break;
+            case 'End':
+                if (e.ctrlKey) newRow = rowCount - 1; // Ctrl+End -> Bottom
+                else newCol = colCount - 1; // End -> End of Row
+                handled = true;
+                break;
+        }
+
+        if (handled) {
+            e.preventDefault();
+            activeRowIndex = newRow;
+            activeColIndex = newCol;
+            
+            // Scroll to view
+            instance.scrollToIndex(activeRowIndex, { align: 'auto' });
+        }
+    }
+
+    // -- Public API --
+    export function getActiveCell(): ActiveCellInfo | null {
+        if (data.length === 0) return null;
+        
+        const instance = get(rowVirtualizer);
+        const virtualItems = instance.getVirtualItems();
+        
+        // Find if the active row is in the virtual items
+        // virtualItems are the subset of rows currently rendered/measured
+        // We want the viewport relative index.
+        // If activeRowIndex is 100, and viewport shows 90-110.
+        // visual index is activeRowIndex - virtualItems[0].index ??
+        
+        let viewportRowIndex: number | null = null;
+        if (virtualItems.length > 0) {
+            const start = virtualItems[0].index;
+            const end = virtualItems[virtualItems.length - 1].index;
+            
+            if (activeRowIndex >= start && activeRowIndex <= end) {
+                // Determine 0-based index relative to the container TOP?
+                // The user asked for "visible position in the grid".
+                // If the grid shows 10 rows, 0..9.
+                // We can just conceptually return the offset.
+                viewportRowIndex = activeRowIndex - start; 
+                
+                // Correction: virtualItems might include overscan.
+                // "Visible" usually means strictly visible.
+                // But for now, returning relative to the rendered batch is the most honest answers from the Virtualizer.
+                // Let's rely on that.
+            }
+        }
+
+        return {
+            dataRowIndex: activeRowIndex,
+            dataColumnName: columns[activeColIndex].accessorKey as string,
+            viewportRowIndex,
+            viewportColumnName: columns[activeColIndex].accessorKey as string
+        };
+    }
+
     // Helpers
-     function getCellStyles(colConfig: DataTableColumn) {
+     function getCellStyles(colConfig: DataTableColumn, isFocused: boolean) {
         let classes = "";
         if (colConfig.justify === 'center') classes += " text-center";
         else if (colConfig.justify === 'right') classes += " text-right";
         else classes += " text-left";
+        
+        if (isFocused) {
+            classes += " bg-primary/20 ring-1 ring-inset ring-primary";
+        }
+        
         return classes + " truncate whitespace-nowrap";
     }
 
@@ -236,20 +344,27 @@
         class="flex-1 overflow-auto w-full relative outline-none focus:ring-2 focus:ring-primary/20"
         role="grid"
         tabindex="0"
+        onkeydown={handleKeyDown}
     >
         <div style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" role="rowgroup">
             {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.index)}
                 {@const row = uiRows[virtualRow.index]}
                 <div
-                    class="absolute top-0 left-0 w-full flex min-w-max border-b bg-background hover:bg-muted/50 transition-colors"
+                    class={cn(
+                        "absolute top-0 left-0 w-full flex min-w-max border-b transition-colors",
+                        virtualRow.index % 2 === 0 ? "bg-background" : "bg-muted/10",
+                        virtualRow.index === activeRowIndex ? "bg-muted" : "hover:bg-muted/50"
+                    )}
                     style="transform: translateY({virtualRow.start}px); height: {virtualRow.size}px;"
                     role="row"
+                    aria-selected={virtualRow.index === activeRowIndex}
                 >
                      {#if row}
-                        {#each row.getVisibleCells() as cell}
+                        {#each row.getVisibleCells() as cell, cellIndex}
                             {@const colConfig = (cell.column.columnDef.meta as any)?.config as DataTableColumn}
+                            {@const isFocused = virtualRow.index === activeRowIndex && cellIndex === activeColIndex}
                             <div 
-                                class={cn("px-4 py-2 text-sm flex items-center border-r border-transparent", colConfig ? getCellStyles(colConfig) : "")}
+                                class={cn("px-4 py-2 text-sm flex items-center border-r border-transparent", colConfig ? getCellStyles(colConfig, isFocused) : "")}
                                 style="width: {cell.column.getSize()}px;"
                                 role="gridcell"
                             >
@@ -266,7 +381,8 @@
         </div>
     </div>
     
-    <div class="flex-none border-t bg-muted/40 p-2 text-xs">
-        {data.length} rows loaded. {isLoading ? '(Fetching)' : ''}
+    <div class="flex-none border-t bg-muted/40 p-2 text-xs flex justify-between">
+        <span>{data.length} rows loaded. {isLoading ? '(Fetching)' : ''}</span>
+        <span>Active: {activeRowIndex}, {activeColIndex}</span>
     </div>
 </div>

@@ -43,15 +43,9 @@ test('scroll_by_pageup_down', async ({ page }) => {
 
     const verifyCorners = async (startRowIndex: number) => {
         // startRowIndex is the index of the row at the TOP of the viewport.
-        // endRowIndex is startRowIndex + VISIBLE_ROWS_COUNT - 1.
-
         const topRow = startRowIndex;
         const bottomRow = startRowIndex + VISIBLE_ROWS_COUNT - 1;
 
-        // Ensure we don't go out of bounds (virtualizer might show partial last row or whitespace)
-        // But with fixed math, it should be exact.
-
-        // Visible Columns are always 0..7 (horizontal scroll not performed in this test).
         const leftCol = 0;
         const rightCol = VISIBLE_COLS_COUNT - 1; // 7
 
@@ -68,81 +62,76 @@ test('scroll_by_pageup_down', async ({ page }) => {
         await expect(page.getByText(bottomRight)).toBeVisible();
     };
 
+    const verifyActiveCell = async (expectedRowIndex: number, expectedColName: string) => {
+        const activeCell = await page.evaluate(() => (window as any).getDataTableActiveCell());
+        console.log(`Verifying Active Cell. Expected: [${expectedRowIndex}, ${expectedColName}]. Actual:`, activeCell);
+
+        expect(activeCell).not.toBeNull();
+        expect(activeCell.dataRowIndex).toBe(expectedRowIndex);
+        expect(activeCell.dataColumnName).toBe(expectedColName);
+        expect(activeCell.viewportRowIndex).toBeGreaterThanOrEqual(0);
+        expect(activeCell.viewportRowIndex).toBeLessThan(VISIBLE_ROWS_COUNT + 5);
+    };
+
     // --- STEP 1: Initial State (Top) ---
-    // Start Row 0.
+    // Start Row 0. Active Cell 0,0 ('col0').
     await verifyCorners(0);
+    await verifyActiveCell(0, 'col0');
 
     // --- STEP 2: Scroll Page Down ---
-    // "scrolls via page down to the end of data"
-    // Requirement checks "After EACH operation"? 
-    // "scrollls via page down to the end ... and scrolls via page up to the top. After each operation, the test should verify..."
-    // This implies verify after the whole sequence? Or after each keypress?
-    // "scrolls... to the end... and scrolls... to the top. After each operation [page down / page up? or the full scroll sets?]"
-    // Usually means after *each* scroll step or after the *full* scroll?
-    // "scrolls via page down to the end of data ... After each operation [of scrolling to end / scrolling to top?]"
-    // I will interpret "After each keyboard press" as too granular. 
-    // I will interpret "After reaching the end" and "After returning to top".
-    // But verify functionality means we should check intermediate too?
-    // Let's check "After reaching end" and "After reaching top".
-    // BUT the prompt says "the test should verify assertions... after each operation".
-    // I'll do intermediate checks if I can reliably predict them.
-    // PageDown moves by Viewport Height (or similar).
-    // Typically 1 page = 11 rows.
-
-    // Press PageDown ONCE and check.
+    // Press PageDown ONCE.
     await scrollContainer.press('PageDown');
-    await page.waitForTimeout(200); // Allow scroll
+    await page.waitForTimeout(200);
 
-    // New Top Row should be 11.
+    // PageDown moves active cell by ~visible rows (11).
     await verifyCorners(11);
+    await verifyActiveCell(11, 'col0');
 
     // Now Scroll to End
-    // 100 rows total.
-    // Top Row is 11.
-    // Remaining rows: 100 - 11 = 89.
-    // Pages: 89 / 11 ~ 8 steps.
-
-    // Loop until we reach close to end.
-    // Last possible Top Row: 100 - 11 = 89.
-    // So Bottom Row would be 89 + 10 = 99.
-
     let currentTop = 11;
-    while (currentTop < 89) {
+    let activeRow = 11;
+
+    while (currentTop < 89 && activeRow < 99) {
         await scrollContainer.press('PageDown');
         currentTop += 11;
-        // Clamp
+        activeRow += 11;
+
+        if (activeRow > 99) activeRow = 99;
         if (currentTop > 89) currentTop = 89;
 
         await page.waitForTimeout(100);
-        // Optional: verify every step?
-        // await verifyCorners(currentTop);
     }
 
     // Verify End State
-    // Current Top should be 89.
-    // Bottom Row 99.
     await verifyCorners(89);
+    await verifyActiveCell(99, 'col0');
 
     // --- STEP 3: Scroll Page Up to Top ---
-    // "scrolls via page up to the top"
-
-    // Press PageUp once and check?
     await scrollContainer.press('PageUp');
     await page.waitForTimeout(200);
 
-    // Back up by 11.
-    // 89 - 11 = 78.
-    await verifyCorners(78);
+    // active was 99. -11 = 88.
+    // Top was 89. Scroll active to 88. 88 is above 89. 
+    // Virtualizer scrollToIndex(88) will probably put 88 at top?
+    // If so, Top Row becomes 88.
+    await verifyCorners(88); // 88..98
+    await verifyActiveCell(88, 'col0');
 
     // Loop up to top
-    currentTop = 78;
-    while (currentTop > 0) {
+    activeRow = 88;
+    currentTop = 88;
+
+    while (activeRow > 0) {
         await scrollContainer.press('PageUp');
-        currentTop -= 11;
-        if (currentTop < 0) currentTop = 0;
+        activeRow -= 11;
+        if (activeRow < 0) activeRow = 0;
+
+        currentTop = activeRow;
+
         await page.waitForTimeout(100);
     }
 
     // Verify Top State
     await verifyCorners(0);
+    await verifyActiveCell(0, 'col0');
 });

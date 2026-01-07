@@ -58,3 +58,16 @@ export interface DataTableProps {
     onSelection?: SelectedCellsCallback;
     class?: string;
 }
+
+export interface ActiveCellInfo {
+    // Data Source coordinates
+    dataRowIndex: number; // 0-based index in the full dataset
+    dataColumnName: string; // Key of the column
+
+    // Grid coordinates (Visible window relative? Or just generic grid coords?)
+    // Request: "visible position in the grid of the active cell (by grid row and column name)"
+    // "Grid Row" usually means 0..N relative to the viewport? Or 0..N in the table?
+    // "visible position... by grid row" implies 0-based index in the CURRENT VIEWPORT.
+    viewportRowIndex: number | null; // 0-based index in the rendered window, null if not visible
+    viewportColumnName: string; // Same as dataColumnName usually
+}

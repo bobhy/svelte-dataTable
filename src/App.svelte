@@ -12,6 +12,7 @@
   
   let dataSource: any = $state(() => Promise.resolve([]));
   let isReady = $state(false);
+  let tableComponent: any = $state();
 
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
@@ -39,6 +40,11 @@
     
     dataSource = ds.getRows.bind(ds);
     isReady = true;
+
+    // Expose API for testing
+    (window as any).getDataTableActiveCell = () => {
+        return tableComponent?.getActiveCell();
+    };
   });
 </script>
 
@@ -53,7 +59,7 @@
     {#if isReady}
         <!-- Fixed size container for predictable testing -->
         <div id="grid-container" class="border rounded-lg" style="width: 800px; height: 600px; overflow: hidden;">
-            <DataTable {config} {dataSource} class="h-full w-full" />
+            <DataTable bind:this={tableComponent} {config} {dataSource} class="h-full w-full" />
         </div>
     {:else}
         <div>Loading...</div>
