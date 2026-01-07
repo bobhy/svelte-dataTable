@@ -233,8 +233,9 @@
     <!-- Virtual Body -->
     <div 
         bind:this={tableContainer} 
-        class="flex-1 overflow-auto w-full relative"
+        class="flex-1 overflow-auto w-full relative outline-none focus:ring-2 focus:ring-primary/20"
         role="grid"
+        tabindex="0"
     >
         <div style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" role="rowgroup">
             {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.index)}
