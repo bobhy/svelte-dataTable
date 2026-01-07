@@ -214,11 +214,12 @@
                     <div class="px-4 py-3 text-left font-medium flex items-center gap-1 border-r border-transparent hover:border-border/50" 
                          style="width: {header.getSize()}px;">
                         {#if !header.isPlaceholder}
-                            <div class="truncate" onclick={header.column.getToggleSortingHandler()}>
+                            <button type="button" class="truncate w-full text-left" onclick={header.column.getToggleSortingHandler()}>
                                 <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-                            </div>
+                            </button>
                             <div 
                                 class="w-1 h-full cursor-col-resize hover:bg-primary"
+                                role="separator"
                                 onmousedown={header.getResizeHandler()}
                                 ontouchstart={header.getResizeHandler()}
                             ></div>
@@ -233,13 +234,15 @@
     <div 
         bind:this={tableContainer} 
         class="flex-1 overflow-auto w-full relative"
+        role="grid"
     >
-        <div style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;">
+        <div style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" role="rowgroup">
             {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.index)}
                 {@const row = uiRows[virtualRow.index]}
                 <div
                     class="absolute top-0 left-0 w-full flex min-w-max border-b bg-background hover:bg-muted/50 transition-colors"
                     style="transform: translateY({virtualRow.start}px); height: {virtualRow.size}px;"
+                    role="row"
                 >
                      {#if row}
                         {#each row.getVisibleCells() as cell}
@@ -247,12 +250,13 @@
                             <div 
                                 class={cn("px-4 py-2 text-sm flex items-center border-r border-transparent", colConfig ? getCellStyles(colConfig) : "")}
                                 style="width: {cell.column.getSize()}px;"
+                                role="gridcell"
                             >
                                 <FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
                             </div>
                         {/each}
                      {:else}
-                         <div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                         <div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground" role="status">
                              Loading...
                          </div>
                      {/if}
