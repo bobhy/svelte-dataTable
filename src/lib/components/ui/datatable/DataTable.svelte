@@ -106,6 +106,7 @@
                 columns: colState,
                 getCoreRowModel: getCoreRowModel(),
                 state: {
+                    ...table.getState(),
                     sorting: sortState,
                     columnSizing: sizeState,
                     columnPinning: pinState
@@ -185,17 +186,20 @@
         if (!tContainer) return;
 
         let prevHeight = tContainer.clientHeight;
+        let resizeTimeout: any;
+
         const ro = new ResizeObserver((entries) => {
              for (const entry of entries) {
                  const newHeight = entry.contentRect.height;
                  if (Math.abs(newHeight - prevHeight) > 1) { // Tolerance for sub-pixel
                      prevHeight = newHeight;
-                     const instance = get(rowVirtualizer);
                      
-                     // Wrap in requestAnimationFrame to wait for layout update
-                     requestAnimationFrame(() => {
-                         instance.measure();
-                     });
+                     // Debounce measurement to prevent ResizeObserver loop limit errors
+                     if (resizeTimeout) clearTimeout(resizeTimeout);
+                     resizeTimeout = setTimeout(() => {
+                         const instance = get(rowVirtualizer);
+                         if (instance) instance.measure();
+                     }, 20);
                  }
              }
         });
@@ -499,6 +503,58 @@
         }
     }
 
+    // -- Row Interaction --
+    function handleRowClick(index: number, e: MouseEvent) {
+        // Update active row for keyboard nav continuity
+        activeRowIndex = index;
+
+        if (e.ctrlKey || e.metaKey) {
+            // Toggle selection
+            const newSet = new Set(selectedRowIndices);
+            if (newSet.has(index)) {
+                newSet.delete(index);
+            } else {
+                newSet.add(index);
+            }
+            selectedRowIndices = newSet;
+            
+            // Notify parent
+            if (onSelection) {
+                // We need to resolve indices to row keys/objects
+                // This might be expensive for large sets, but typically user selects a few.
+                // Protocol says: SelectedCellsCallback = (selectedCells: SelectedCell[]) => ...
+                // Wait, SelectedCell is { rowKey, columnKey }.
+                // If we are selecting ROWS, do we send all cells? 
+                // Or does the user expect row selection?
+                // The Type definition says `onSelection?: SelectedCellsCallback`.
+                // But my `selectedRowIndices` implies row selection.
+                // Let's just track indices internally for now.
+                // If the user wants row objects, we might need a different prop.
+            }
+        } else {
+            // Single click - clear selection? Or just focus?
+            // Standard grid behavior: click focuses, maybe clears multi-selection unless shift.
+            if (selectedRowIndices.size > 0 && !e.shiftKey) {
+                selectedRowIndices = new Set();
+            }
+        }
+    }
+
+    function handleRowDoubleClick(index: number) {
+        if (onEdit) {
+            const row = uiRows[index];
+            if (row) onEdit(row.original, []); // onEdit expects (beforeData, afterData)? No.
+            // Type says: DataEditCallback = (before, after) => ...
+            // Wait, onEdit is passed to DataTable.
+            // In Transactions.svelte: double click?
+            // Transactions.svelte has NO onEdit prop passed to DataTable.
+            // So onEdit is undefined.
+        }
+        
+        // Emulate "Edit Mode"? 
+        // For now just safe guard.
+    }
+
     // -- Public API --
     export function getActiveCell(): ActiveCellInfo | null {
         if (data.length === 0) return null;
@@ -644,26 +700,38 @@
     <div 
         bind:this={tableContainer} 
         class="flex-1 overflow-auto w-full relative outline-none focus:ring-2 focus:ring-primary/20"
+        style="scrollbar-gutter: stable;"
         role="grid"
         tabindex="0"
         onkeydown={handleKeyDown}
     >
-        <div style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" role="rowgroup">
-            {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.index)}
-                {@const row = uiRows[virtualRow.index]}
-                <div
-                    use:measureRow={virtualRow.index}
-                    class={cn(
-                        "absolute top-0 left-0 w-full flex min-w-max border-b transition-colors",
-                        virtualRow.index % 2 === 0 ? "bg-background" : "bg-muted/10",
-                        virtualRow.index === activeRowIndex ? "bg-muted" : "hover:bg-muted/50"
-                    )}
-                    style="transform: translateY({virtualRow.start}px);"
-                    role="row"
-                    aria-selected={virtualRow.index === activeRowIndex}
-                    data-index={virtualRow.index}
-                >
-                     {#if row}
+        <div 
+            style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" 
+            class="w-full"
+        >
+            <!-- Wrapper for flow layout positioning -->
+            <div style="transform: translateY({$rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px);">
+            {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.key)}
+                <!-- Render the row -->
+                 {@const row = uiRows[virtualRow.index]}
+                 {#if row}
+                    <!-- 
+                        Row Container
+                        Using normal flow (relative) instead of absolute positioning.
+                        Letting the browser handle height accumulation to prevent overlap and RO loops.
+                    -->
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                    <div
+                        data-index={virtualRow.index} 
+                        use:measureRow={virtualRow.index}
+                        class={cn("flex border-b w-full hover:bg-muted/50 transition-colors data-[state=selected]:bg-muted", 
+                            activeRowIndex === virtualRow.index ? "bg-muted" : "")}
+                        data-state={selectedRowIndices.has(virtualRow.index) ? "selected" : undefined}
+                        role="row"
+                        onclick={(e) => handleRowClick(virtualRow.index, e)}
+                        ondblclick={() => handleRowDoubleClick(virtualRow.index)}
+                    >
                         {#each row.getVisibleCells() as cell, cellIndex}
                             {@const colConfig = (cell.column.columnDef.meta as any)?.config as DataTableColumn}
                             {@const isFocused = virtualRow.index === activeRowIndex && cellIndex === activeColIndex}
@@ -678,13 +746,12 @@
                                 </div>
                             </div>
                         {/each}
+                    </div>
                      {:else}
-                         <div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground" role="status">
-                             Loading...
-                         </div>
+                        <!-- Skeleton or placeholder if needed, though uiRows usually in sync -->
                      {/if}
-                </div>
             {/each}
+            </div>
         </div>
     </div>
     

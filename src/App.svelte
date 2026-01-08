@@ -13,10 +13,12 @@
   let dataSource: any = $state(() => Promise.resolve([]));
   let isReady = $state(false);
   let tableComponent: any = $state();
+  let scenario = $state<string | null>(null);
 
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
-    const scenario = params.get('scenario');
+    scenario = params.get('scenario');
+    console.log('[App] Mounted. Scenario:', scenario);
     
     let rows = 50;
     let cols = 5;
@@ -58,7 +60,7 @@
     
     {#if isReady}
         <!-- Fixed size container for predictable testing -->
-        <div id="grid-container" class="border rounded-lg" style="width: 800px; height: 600px; overflow: hidden;">
+        <div id="grid-container" class="border rounded-lg {scenario !== 'resize_loop' ? 'fixed-row-height' : ''}" style="width: 800px; height: 600px; overflow: hidden;">
             <DataTable bind:this={tableComponent} {config} {dataSource} class="h-full w-full" />
         </div>
     {:else}
@@ -68,12 +70,12 @@
 
 <style>
     /* Force predictable layout for tests */
-    :global(#grid-container th) {
+    :global(#grid-container.fixed-row-height th) {
         height: 50px !important;
         max-height: 50px !important;
         box-sizing: border-box;
     }
-    :global(#grid-container td) {
+    :global(#grid-container.fixed-row-height td) {
         height: 50px !important;
         max-height: 50px !important;
         box-sizing: border-box;

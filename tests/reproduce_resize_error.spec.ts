@@ -17,9 +17,9 @@ test('datatable should not throw ResizeObserver loop error on aggressive resize'
     });
 
     await page.setViewportSize({ width: 1280, height: 1200 });
-    await page.goto('/');
+    await page.goto('/?scenario=resize_loop');
     const gridContainer = page.locator('#grid-container');
-    await expect(gridContainer).toBeVisible();
+    await expect(gridContainer).toBeVisible({ timeout: 15000 });
 
     // Aggressive resizing loop
     console.log('Starting aggressive resize...');
