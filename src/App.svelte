@@ -29,15 +29,34 @@
 
     const ds = new TestGridDataSource(rows, cols);
     
-    config = {
-        name: 'test-grid',
-        keyColumn: 'id',
-        title: scenario ? `Test: ${scenario}` : 'DataTable Example',
-        maxVisibleRows: 20,
-        isFilterable: true,
-        isFindable: true,
-        columns: ds.getColumns()
-    };
+    if (scenario === 'justification') {
+        const baseCols = ds.getColumns();
+        // Override columns for justification test
+        config = {
+            name: 'test-grid-justification',
+            keyColumn: 'id',
+            title: 'Test: Justification',
+            maxVisibleRows: 20,
+            isFilterable: true,
+            isFindable: true,
+            columns: [
+                { ...baseCols[0], name: 'col_left', title: 'Left', justify: 'left' },
+                { ...baseCols[1], name: 'col_center', title: 'Center', justify: 'center' },
+                { ...baseCols[2], name: 'col_right', title: 'Right', justify: 'right' },
+                ...baseCols.slice(3)
+            ]
+        };
+    } else {
+        config = {
+            name: 'test-grid',
+            keyColumn: 'id',
+            title: scenario ? `Test: ${scenario}` : 'DataTable Example',
+            maxVisibleRows: 20,
+            isFilterable: true,
+            isFindable: true,
+            columns: ds.getColumns()
+        };
+    }
     
     dataSource = ds.getRows.bind(ds);
     isReady = true;
