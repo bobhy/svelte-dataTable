@@ -152,6 +152,25 @@
              });
         });
     });
+
+    // 4. Handle Container Resize
+    $effect(() => {
+        const tContainer = tableContainer;
+        if (!tContainer) return;
+
+        const ro = new ResizeObserver((entries) => {
+             console.log('DataTable ResizeObserver fired:', entries[0].contentRect.height);
+             const instance = get(rowVirtualizer);
+             
+             // Wrap in requestAnimationFrame to wait for layout update
+             requestAnimationFrame(() => {
+                 instance.measure();
+             });
+        });
+
+        ro.observe(tContainer);
+        return () => ro.disconnect();
+    });
     
     // -- Data Fetching --
     let backendFetchedCount = $state(0);
