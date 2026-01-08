@@ -15,15 +15,19 @@ export class TestGridDataSource {
         const indices = Array.from({ length: this.rowCount }, (_, i) => i);
 
         // Sort if needed
+        // Sort if needed
         if (sortKeys && sortKeys.length > 0) {
-            const { key, direction } = sortKeys[0];
             indices.sort((a, b) => {
-                const valA = this.getCellContent(a, key);
-                const valB = this.getCellContent(b, key);
+                for (const { key, direction } of sortKeys) {
+                    if (!key || key === 'none') continue;
 
-                // Natural sort might be better, but string sort is consistent for "R1C1"
-                if (valA < valB) return direction === 'asc' ? -1 : 1;
-                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                    const valA = this.getCellContent(a, key);
+                    const valB = this.getCellContent(b, key);
+
+                    if (valA < valB) return direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return direction === 'asc' ? 1 : -1;
+                    // If equal, continue to next sort key
+                }
                 return 0;
             });
         }

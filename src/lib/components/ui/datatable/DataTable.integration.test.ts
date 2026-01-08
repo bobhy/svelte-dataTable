@@ -28,6 +28,14 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
 
     beforeEach(() => {
         vi.clearAllMocks();
+
+        // Mock ResizeObserver which is missing in jsdom
+        global.ResizeObserver = class ResizeObserver {
+            observe = vi.fn();
+            unobserve = vi.fn();
+            disconnect = vi.fn();
+        };
+
         defaultConfig = {
             name: 'test-grid',
             keyColumn: 'id',
