@@ -662,7 +662,7 @@
 
 <div class={cn("flex flex-col h-full w-full border rounded-md overflow-hidden bg-background", className)}>
     <!-- Header -->
-    <div bind:this={headerContainer} class="flex-none border-b bg-muted/40 font-medium text-sm overflow-x-auto" style="scrollbar-width: none;">
+    <div bind:this={headerContainer} class="flex-none border-b bg-muted/40 font-medium text-sm overflow-x-auto" style="scrollbar-gutter: stable;">
         <div class="flex w-full min-w-max">
              {#each table.getHeaderGroups() as headerGroup}
                 {#each headerGroup.headers as header}

@@ -18,7 +18,6 @@
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
     scenario = params.get('scenario');
-    console.log('[App] Mounted. Scenario:', scenario);
     
     let rows = 50;
     let cols = 5;
@@ -60,7 +59,8 @@
     
     {#if isReady}
         <!-- Fixed size container for predictable testing -->
-        <div id="grid-container" class="border rounded-lg {scenario !== 'resize_loop' ? 'fixed-row-height' : ''}" style="width: 800px; height: 600px; overflow: hidden;">
+        <!-- Mimic budgetTracker layout -->
+        <div id="grid-container" class="h-[calc(100vh-100px)] w-full p-4 {scenario !== 'resize_loop' ? 'fixed-row-height' : ''}">
             <DataTable bind:this={tableComponent} {config} {dataSource} class="h-full w-full" />
         </div>
     {:else}
