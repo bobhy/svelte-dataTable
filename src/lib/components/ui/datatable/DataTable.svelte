@@ -184,14 +184,20 @@
         const tContainer = tableContainer;
         if (!tContainer) return;
 
+        let prevHeight = tContainer.clientHeight;
         const ro = new ResizeObserver((entries) => {
-             // console.log('DataTable ResizeObserver fired:', entries[0].contentRect.height);
-             const instance = get(rowVirtualizer);
-             
-             // Wrap in requestAnimationFrame to wait for layout update
-             requestAnimationFrame(() => {
-                 instance.measure();
-             });
+             for (const entry of entries) {
+                 const newHeight = entry.contentRect.height;
+                 if (Math.abs(newHeight - prevHeight) > 1) { // Tolerance for sub-pixel
+                     prevHeight = newHeight;
+                     const instance = get(rowVirtualizer);
+                     
+                     // Wrap in requestAnimationFrame to wait for layout update
+                     requestAnimationFrame(() => {
+                         instance.measure();
+                     });
+                 }
+             }
         });
 
         ro.observe(tContainer);
@@ -544,8 +550,10 @@
             for (let entry of entries) {
                  // Wrap in rAF to ensure layout is settled / prevent loop errors
                  requestAnimationFrame(() => {
-                     const inst = get(rowVirtualizer); 
-                     inst.measureElement(node);
+                     if (node.isConnected) {
+                         const inst = get(rowVirtualizer); 
+                         inst.measureElement(node);
+                     }
                  });
             }
         });
