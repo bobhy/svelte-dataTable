@@ -60,6 +60,10 @@
         } as ColumnDef<any>))
     );
 
+    // Base estimated row height (should be conservative to avoid gaps)
+    const estimatedRowHeight = 40;
+
+
     // -- Table Instance --
 	const options: TableOptions<any> = {
 		get data() { return $state.snapshot(data); },
@@ -135,7 +139,8 @@
     const rowVirtualizer = createVirtualizer({
         count: 0,
         getScrollElement: () => tableContainer || null,
-        estimateSize: () => 40,
+        estimateSize: () => estimatedRowHeight,
+        measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
         overscan: 5
     });
 
@@ -167,7 +172,8 @@
              instance.setOptions({
                  count: more ? len + 1 : len,
                  getScrollElement: () => tContainer,
-                 estimateSize: () => 40,
+                 estimateSize: () => estimatedRowHeight,
+                 measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
                  overscan: 5
              });
         });
@@ -179,7 +185,7 @@
         if (!tContainer) return;
 
         const ro = new ResizeObserver((entries) => {
-             console.log('DataTable ResizeObserver fired:', entries[0].contentRect.height);
+             // console.log('DataTable ResizeObserver fired:', entries[0].contentRect.height);
              const instance = get(rowVirtualizer);
              
              // Wrap in requestAnimationFrame to wait for layout update
@@ -528,17 +534,64 @@
     }
 
     // Helpers
-     function getCellStyles(colConfig: DataTableColumn, isFocused: boolean) {
-        let classes = "";
-        if (colConfig.justify === 'center') classes += " text-center";
-        else if (colConfig.justify === 'right') classes += " text-right";
-        else classes += " text-left";
+    function measureRow(node: HTMLElement, index: number) {
+        // Initial measurement
+        const instance = get(rowVirtualizer);
+        instance.measureElement(node);
+
+        // Watch for size changes (e.g. content loading, wrapping)
+        const ro = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+                 // Wrap in rAF to ensure layout is settled / prevent loop errors
+                 requestAnimationFrame(() => {
+                     const inst = get(rowVirtualizer); 
+                     inst.measureElement(node);
+                 });
+            }
+        });
+        
+        ro.observe(node);
+        
+        return {
+            destroy() {
+                ro.disconnect();
+            }
+        };
+    }
+
+     function getCellStyles(colConfig: DataTableColumn, isFocused: boolean): { cellClasses: string; cellStyles: string; wrapperClasses: string; wrapperStyles: string; usesLineClamping: boolean } {
+        let cellClasses = "";
+        let cellStyles = "";
+        
+        let wrapperClasses = "";
+        let wrapperStyles = "";
+        let usesLineClamping = false;
+        
+        // Alignment on Cell
+        if (colConfig.justify === 'center') cellClasses += " text-center";
+        else if (colConfig.justify === 'right') cellClasses += " text-right";
+        else cellClasses += " text-left";
         
         if (isFocused) {
-            classes += " bg-primary/20 ring-1 ring-inset ring-primary";
+            cellClasses += " bg-primary/20 ring-1 ring-inset ring-primary";
         }
         
-        return classes + " truncate whitespace-nowrap";
+        // Wrapping logic
+        if (colConfig.wrappable === 'word') {
+            wrapperClasses += " break-words whitespace-normal";
+            // Apply line clamping if maxLines is specified
+            if (colConfig.maxLines && colConfig.maxLines > 0) {
+                // console.log('Applying line-clamp:', colConfig.maxLines, 'to column:', colConfig.name);
+                wrapperStyles += `display: -webkit-box; -webkit-line-clamp: ${colConfig.maxLines}; -webkit-box-orient: vertical; overflow: hidden;`;
+                usesLineClamping = true;
+            }
+        } else {
+             wrapperClasses += " truncate whitespace-nowrap";
+        }
+        
+        wrapperClasses += " leading-normal"; // Ensure consistent line height
+
+        return { cellClasses, cellStyles, wrapperClasses, wrapperStyles, usesLineClamping };
     }
 
 </script>
@@ -591,25 +644,30 @@
             {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.index)}
                 {@const row = uiRows[virtualRow.index]}
                 <div
+                    use:measureRow={virtualRow.index}
                     class={cn(
                         "absolute top-0 left-0 w-full flex min-w-max border-b transition-colors",
                         virtualRow.index % 2 === 0 ? "bg-background" : "bg-muted/10",
                         virtualRow.index === activeRowIndex ? "bg-muted" : "hover:bg-muted/50"
                     )}
-                    style="transform: translateY({virtualRow.start}px); height: {virtualRow.size}px;"
+                    style="transform: translateY({virtualRow.start}px);"
                     role="row"
                     aria-selected={virtualRow.index === activeRowIndex}
+                    data-index={virtualRow.index}
                 >
                      {#if row}
                         {#each row.getVisibleCells() as cell, cellIndex}
                             {@const colConfig = (cell.column.columnDef.meta as any)?.config as DataTableColumn}
                             {@const isFocused = virtualRow.index === activeRowIndex && cellIndex === activeColIndex}
+                            {@const cellStyle = colConfig ? getCellStyles(colConfig, isFocused) : { cellClasses: "", cellStyles: "", wrapperClasses: "", wrapperStyles: "", usesLineClamping: false }}
                             <div 
-                                class={cn("px-4 py-2 text-sm flex items-center border-r border-transparent", colConfig ? getCellStyles(colConfig, isFocused) : "")}
-                                style="width: {cell.column.getSize()}px;"
+                                class={cn("px-4 py-2 text-sm border-r border-transparent", cellStyle.usesLineClamping ? "" : "flex items-center", cellStyle.cellClasses)}
+                                style="width: {cell.column.getSize()}px; {cellStyle.cellStyles}"
                                 role="gridcell"
                             >
-                                <FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+                                <div class={cellStyle.wrapperClasses} style={cellStyle.wrapperStyles}>
+                                    <FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+                                </div>
                             </div>
                         {/each}
                      {:else}

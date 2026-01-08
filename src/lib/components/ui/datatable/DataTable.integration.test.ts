@@ -36,6 +36,12 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             disconnect = vi.fn();
         };
 
+        // Mock HTMLElement dimensions for virtualization
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 500 });
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 500 });
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 1000 });
+
         defaultConfig = {
             name: 'test-grid',
             keyColumn: 'id',
@@ -87,7 +93,44 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             const filterInput = container.querySelector('input[placeholder="Filter..."]');
             expect(filterInput).toBeTruthy();
             if (filterInput) await userEvent.type(filterInput, 'Item 1');
+            if (filterInput) await userEvent.type(filterInput, 'Item 1');
             await waitFor(() => expect(dataSourceMock.mock.calls.length).toBeGreaterThan(initialCalls), { timeout: 2000 });
+        });
+
+        it('should apply line clamping styles when maxLines is set', async () => {
+            const configWithMaxLines = {
+                ...defaultConfig,
+                columns: [
+                    ...defaultConfig.columns,
+                    { name: 'description', title: 'Description', wrappable: 'word', maxLines: 2 }
+                ]
+            };
+            const { container } = render(DataTable, { config: configWithMaxLines, dataSource: dataSourceMock });
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+
+            // Find a cell in the description column (index 4)
+            // Rows are in [role="rowgroup"] -> [role="row"] -> div[role="gridcell"]
+            await waitFor(() => expect(container.querySelectorAll('[role="row"]').length).toBeGreaterThan(0));
+            const rows = container.querySelectorAll('[role="row"]');
+            expect(rows.length).toBeGreaterThan(0);
+
+            const firstRow = rows[0];
+            const cells = firstRow.querySelectorAll('[role="gridcell"]');
+            expect(cells.length).toBe(5); // 4 default + 1 description
+
+            const descCell = cells[4];
+            // The styles are now on the inner div
+            const innerWrapper = descCell.querySelector('div');
+            expect(innerWrapper).toBeTruthy();
+
+            // Check for styles on the inner wrapper
+            const styleAttr = innerWrapper?.getAttribute('style') || "";
+            expect(styleAttr).toContain('display: -webkit-box');
+            expect(styleAttr).toContain('-webkit-line-clamp: 2');
+            expect(styleAttr).toContain('overflow: hidden');
+
+            // Also check class on inner wrapper
+            expect(innerWrapper).toHaveClass('break-words', 'whitespace-normal');
         });
 
         // Additional tests (sorting, keyboard navigation, etc.) can be added similarly.
