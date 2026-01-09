@@ -15,15 +15,18 @@ test('datatable should respect column justification settings', async ({ page }) 
 
     // Cell 0: Left
     // Note: The structure is roughly:
-    // <div role="gridcell" class="... text-left ..."> ... </div>
+    // <div role="gridcell" class="... text-left justify-start ..."> ... </div>
     const cellLeft = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(0);
     await expect(cellLeft).toHaveClass(/text-left/);
+    await expect(cellLeft).toHaveClass(/justify-start/);
 
     // Cell 1: Center
     const cellCenter = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(1);
     await expect(cellCenter).toHaveClass(/text-center/);
+    await expect(cellCenter).toHaveClass(/justify-center/);
 
     // Cell 2: Right
     const cellRight = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(2);
     await expect(cellRight).toHaveClass(/text-right/);
+    await expect(cellRight).toHaveClass(/justify-end/);
 });

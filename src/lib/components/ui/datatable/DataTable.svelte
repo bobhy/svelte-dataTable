@@ -632,9 +632,10 @@
         let usesLineClamping = false;
         
         // Alignment on Cell
-        if (colConfig.justify === 'center') cellClasses += " text-center";
-        else if (colConfig.justify === 'right') cellClasses += " text-right";
-        else cellClasses += " text-left";
+        // Alignment on Cell
+        if (colConfig.justify === 'center') cellClasses += " text-center justify-center";
+        else if (colConfig.justify === 'right') cellClasses += " text-right justify-end";
+        else cellClasses += " text-left justify-start";
         
         if (isFocused) {
             cellClasses += " bg-primary/20 ring-1 ring-inset ring-primary";
