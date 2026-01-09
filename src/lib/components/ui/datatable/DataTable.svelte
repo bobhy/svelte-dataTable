@@ -672,14 +672,15 @@
                         {#if !header.isPlaceholder}
                             <button type="button" class="truncate w-full text-left flex items-center gap-1" onclick={() => showSortDialog = true}>
                                 <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-                                {#if header.column.getIsSorted()}
+                                {#if sorting.find(s => s.id === header.column.id)}
+                                    {@const sortState = sorting.find(s => s.id === header.column.id)}
                                     {@const idx = sorting.findIndex(s => s.id === header.column.id)}
                                     <span class="text-[10px] font-bold ml-1 flex items-center">
                                         {idx + 1}
-                                        {#if header.column.getIsSorted() === 'asc'}
-                                            <ArrowUp class="w-3 h-3" />
-                                        {:else}
+                                        {#if sortState?.desc}
                                             <ArrowDown class="w-3 h-3" />
+                                        {:else}
+                                            <ArrowUp class="w-3 h-3" />
                                         {/if}
                                     </span>
                                 {/if}
@@ -763,7 +764,7 @@
     
     <SortOptions 
         bind:open={showSortDialog} 
-        {columns} 
+        columns={config.columns}
         sorting={sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }))} 
         onApply={updateSorting}
     />
