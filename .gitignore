@@ -4,18 +4,11 @@ build/
 .vite/
 .svelte-kit/
 .tailwindcss-cache
-wailsjs/
-components.json.bak
-vite.config.ts.timestamp-*
-node_modules/
-dist/
-build/
-.vite/
-.svelte-kit/
-.tailwindcss-cache
 components.json.bak
 vite.config.ts.timestamp-*
 wailsjs/
+test-results/
+playwright-report/
 
 # Logs and temp files
 npm-debug.log*
@@ -81,5 +74,3 @@ temp/
 # pnpm-lock.yaml
 !/.agent/
 !/.agent/rules/implementation_notes.md
-test-results/
-playwright-report/
