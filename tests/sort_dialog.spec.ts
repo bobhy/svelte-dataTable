@@ -1,46 +1,86 @@
 import { test, expect } from '@playwright/test';
+import { loadWithConfig } from './utils';
 
-test('sort dialog should populate column options', async ({ page }) => {
-    // Navigate to default view
-    await page.goto('/');
+test('sort dialog should populate column options and handle multi-sort', async ({ page }) => {
+    // 1. Setup with explicit columns
+    const columns = [
+        { name: 'id', title: 'ID', isSortable: true },
+        { name: 'name', title: 'Name', isSortable: true },
+        { name: 'age', title: 'Age', isSortable: true },
+        { name: 'city', title: 'City', isSortable: false } // Not sortable
+    ];
+
+    await loadWithConfig(page, {
+        config: { columns },
+        rows: 10,
+        cols: 4
+    });
 
     const gridContainer = page.locator('#grid-container');
-    await expect(gridContainer).toBeVisible({ timeout: 15000 });
+    await expect(gridContainer).toBeVisible();
 
-    // Find a header and click it. "ID" is usually the first column in test data.
-    // The header button triggers the dialog.
-    // The header button triggers the dialog.
-    // Selector: find the first button inside the header area (top of grid).
-    // Note: The grid container contains the header.
+    // 2. Open Sort Dialog
     const firstHeader = gridContainer.locator('button').first();
     await firstHeader.click();
 
-    // Check for Dialog title
-    await expect(page.getByRole('heading', { name: 'Sort Rows' })).toBeVisible();
-
-    // Check the "Sort by" dropdown (the first select element for column)
-    // The dialog structure has a select for Direction and a select for Column.
-    // The text check "of" is in between.
-
-    // We can look for the select that contains options.
-    // Ideally we find the select that follows "of".
-    // Or just find all selects and checks their options. The direction select has "Ascending"/"Descending".
-
-    // Let's find the select that SHOULD have columns.
-    // It should have options other than just "Ascending", "Descending", "(None)".
-
-    // We expect "ID", "Name", "Age" etc from TestGridDataSource.
-    // TestGridDataSource columns: id, name0, name1 ...
-
     const dialog = page.getByRole('dialog');
-    const columnSelects = dialog.locator('select').filter({ hasText: /None/ }); // Column selects have (None) option.
+    await expect(dialog.getByRole('heading', { name: 'Sort Rows' })).toBeVisible();
 
-    // Wait for the select to be visible
-    await expect(columnSelects.first()).toBeVisible();
+    // 3. Verify Sort Inputs
+    // We expect 3 "rows" of sort options (Sort by, Then by, Then by)
+    // Structure: Row -> [Select Direction] "of" [Select Column]
 
-    // Get text content of the select (options)
-    const content = await columnSelects.first().textContent();
+    // Check first level
+    const rows = dialog.locator('div.flex.items-center.gap-2');
+    await expect(rows).toHaveCount(3);
 
-    // Expect it to contain "ID" (or "id")
-    expect(content).toContain('ID');
+    // Row 1: "Sort by"
+    await expect(rows.nth(0)).toContainText('Sort by');
+    const sort1Dir = rows.nth(0).locator('select').nth(0);
+    const sort1Col = rows.nth(0).locator('select').nth(1);
+
+    // Verify Available Columns
+    // Should include ID, Name, Age. Should NOT include City.
+    // Should include (None).
+    const options = await sort1Col.locator('option').allInnerTexts();
+    expect(options).toContain('(None)');
+    expect(options).toContain('ID');
+    expect(options).toContain('Name');
+    expect(options).toContain('Age');
+    expect(options).not.toContain('City');
+
+    // 4. Configure Multi-Sort
+    // Sort by Name Asc
+    await sort1Col.selectOption('name');
+    await sort1Dir.selectOption('asc');
+
+    // Row 2: "Then by"
+    await expect(rows.nth(1)).toContainText('Then by');
+    const sort2Dir = rows.nth(1).locator('select').nth(0);
+    const sort2Col = rows.nth(1).locator('select').nth(1);
+
+    // Verify Name is NOT in second dropdown (already selected)
+    const options2 = await sort2Col.locator('option').allInnerTexts();
+    expect(options2).not.toContain('Name');
+    expect(options2).toContain('Age');
+
+    // Sort by Age Desc
+    await sort2Col.selectOption('age');
+    await sort2Dir.selectOption('desc');
+
+    // 5. Apply
+    await dialog.getByRole('button', { name: 'Apply Sort' }).click();
+    await expect(dialog).toBeHidden();
+
+    // 6. Verify Headers
+    // Name header should have "1 ArrowUp"
+    const nameHeader = gridContainer.locator('button', { hasText: 'Name' });
+    await expect(nameHeader).toContainText('1');
+    await expect(nameHeader.locator('svg.lucide-arrow-up')).toBeVisible();
+
+    // Age header should have "2 ArrowDown"
+    const ageHeader = gridContainer.locator('button', { hasText: 'Age' });
+    await expect(ageHeader).toContainText('2');
+    await expect(ageHeader.locator('svg.lucide-arrow-down')).toBeVisible();
 });
+

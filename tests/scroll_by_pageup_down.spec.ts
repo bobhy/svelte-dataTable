@@ -1,5 +1,6 @@
 
 import { test, expect } from '@playwright/test';
+import { loadWithConfig } from './utils';
 
 test('scroll_by_pageup_down', async ({ page }) => {
     // 1. Setup Test Scenario
@@ -10,7 +11,11 @@ test('scroll_by_pageup_down', async ({ page }) => {
 
     // Navigate to the test page
     console.log(`Navigating to test scenario: scroll_by_pageup_down, rows=${rows}, cols=${cols}`);
-    await page.goto(`/?scenario=scroll_by_pageup_down&rows=${rows}&cols=${cols}`);
+    await loadWithConfig(page, {
+        rows: rows,
+        cols: cols,
+        scenario: 'scroll_by_pageup_down'
+    });
 
     // Wait for the grid container to be visible
     const grid = page.locator('#grid-container');

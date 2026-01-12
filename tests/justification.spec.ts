@@ -1,8 +1,19 @@
 import { test, expect } from '@playwright/test';
+import { loadWithConfig } from './utils';
 
 test('datatable should respect column justification settings', async ({ page }) => {
-    // Navigate to the test page with the justification scenario
-    await page.goto('/?scenario=justification');
+    // Explicit columns with justification
+    const columns = [
+        { name: 'left', title: 'Left', justify: 'left' },
+        { name: 'center', title: 'Center', justify: 'center' },
+        { name: 'right', title: 'Right', justify: 'right' }
+    ];
+
+    await loadWithConfig(page, {
+        config: { columns },
+        rows: 5,
+        cols: 3
+    });
 
     const gridContainer = page.locator('#grid-container');
     await expect(gridContainer).toBeVisible({ timeout: 15000 });
@@ -10,23 +21,22 @@ test('datatable should respect column justification settings', async ({ page }) 
     // Wait for rows to render
     await expect(page.locator('[role="row"]').first()).toBeVisible();
 
-    // The first 3 columns are configured as left, center, right.
-    // We check the first row's cells.
+    // Check cells in first row
+    const firstRow = page.locator('[role="row"]').first();
 
     // Cell 0: Left
-    // Note: The structure is roughly:
-    // <div role="gridcell" class="... text-left justify-start ..."> ... </div>
-    const cellLeft = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(0);
+    const cellLeft = firstRow.locator('[role="gridcell"]').nth(0);
     await expect(cellLeft).toHaveClass(/text-left/);
     await expect(cellLeft).toHaveClass(/justify-start/);
 
     // Cell 1: Center
-    const cellCenter = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(1);
+    const cellCenter = firstRow.locator('[role="gridcell"]').nth(1);
     await expect(cellCenter).toHaveClass(/text-center/);
     await expect(cellCenter).toHaveClass(/justify-center/);
 
     // Cell 2: Right
-    const cellRight = page.locator('[role="row"]').first().locator('[role="gridcell"]').nth(2);
+    const cellRight = firstRow.locator('[role="gridcell"]').nth(2);
     await expect(cellRight).toHaveClass(/text-right/);
     await expect(cellRight).toHaveClass(/justify-end/);
 });
+

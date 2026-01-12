@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loadWithConfig } from './utils';
 
 test('datatable should not throw ResizeObserver loop error on aggressive resize', async ({ page }) => {
     const errors: string[] = [];
@@ -17,7 +18,13 @@ test('datatable should not throw ResizeObserver loop error on aggressive resize'
     });
 
     await page.setViewportSize({ width: 1280, height: 1200 });
-    await page.goto('/?scenario=resize_loop');
+
+    // Just a standard load is fine, the loop is external
+    await loadWithConfig(page, {
+        rows: 50,
+        cols: 10
+    });
+
     const gridContainer = page.locator('#grid-container');
     await expect(gridContainer).toBeVisible({ timeout: 15000 });
 
