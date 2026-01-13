@@ -26,7 +26,24 @@
 	let sorting = $state<SortingState>([]);
     let columnSizing = $state({});
     let columnPinning = $state({ left: [], right: [] });
-    // let globalFilter = $state(""); 
+    
+    let globalFilter = $state(""); 
+    let findTerm = $state("");
+    
+    // Auto-refresh when filter changes (debounce?)
+    let lastFilter = "";
+    $effect(() => {
+        if (globalFilter !== lastFilter) {
+            lastFilter = globalFilter;
+            // Reset and fetch
+            untrack(() => {
+                data = [];
+                hasMore = true;
+                get(rowVirtualizer).setOptions({ count: 0 }); // Reset virtualizer count
+                performFetch(0, 20);
+            });
+        }
+    }); 
 
     // Active Cell State (Navigation)
     let activeRowIndex = $state(0);
@@ -220,7 +237,7 @@
             const cols = [config.keyColumn, ...config.columns.map(c => c.name)];
             const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
             
-            const newRawRows = await dataSource(cols, startRow, fetchCount, sortKeys);
+            const newRawRows = await dataSource(cols, startRow, fetchCount, sortKeys, { global: globalFilter });
             
             // Sparse-safe update
             if (data.length < startRow + newRawRows.length) {
@@ -662,6 +679,28 @@
 </script>
 
 <div class={cn("flex flex-col h-full w-full border rounded-md overflow-hidden bg-background", className)}>
+    <!-- Toolbar -->
+    {#if config.isFilterable || config.isFindable}
+        <div class="flex-none p-2 border-b bg-muted/20 flex gap-2">
+            {#if config.isFilterable}
+                <input 
+                    type="text" 
+                    placeholder="Filter..." 
+                    bind:value={globalFilter}
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
+                />
+            {/if}
+            {#if config.isFindable}
+                 <input 
+                    type="text" 
+                    placeholder="Find..." 
+                    bind:value={findTerm}
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
+                />
+            {/if}
+        </div>
+    {/if}
+
     <!-- Header -->
     <div bind:this={headerContainer} class="flex-none border-b bg-muted/40 font-medium text-sm overflow-x-auto" style="scrollbar-gutter: stable;">
         <div class="flex w-full min-w-max">

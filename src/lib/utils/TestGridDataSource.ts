@@ -10,9 +10,24 @@ export class TestGridDataSource {
         this.colCount = colCount;
     }
 
-    async getRows(columns: string[], startRow: number, numRows: number, sortKeys: SortKey[]): Promise<any[]> {
+    async getRows(columns: string[], startRow: number, numRows: number, sortKeys: SortKey[], filters?: { global?: string }): Promise<any[]> {
         // Create an array of row indices
-        const indices = Array.from({ length: this.rowCount }, (_, i) => i);
+        let indices = Array.from({ length: this.rowCount }, (_, i) => i);
+
+        // Filter if needed
+        if (filters?.global) {
+            const term = filters.global.toLowerCase();
+            indices = indices.filter(idx => {
+                // Check all requested columns for the term
+                // Simulator shortcut:
+                // We know row content is roughly "R{idx}C{colIndex}"
+                // If we check if "R{idx}" or "C{col}" matches?
+                // Better: construct a representative string "R{idx}C0 R{idx}C1 ... "
+                // and check that.
+                const content = Array.from({ length: this.colCount }, (_, c) => `R${idx}C${c}`).join(' ');
+                return content.toLowerCase().includes(term);
+            });
+        }
 
         // Sort if needed
         // Sort if needed

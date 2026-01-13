@@ -29,7 +29,8 @@ export type DataSourceCallback = (
     columnKeys: string[],
     startRow: number,
     numRows: number,
-    sortKeys: SortKey[]
+    sortKeys: SortKey[],
+    filters?: { global?: string }
 ) => Promise<any[]>; // Returns array of row objects
 
 // Edit Callback Types
