@@ -63,8 +63,6 @@
     };
 
     const dataSource: DataSourceCallback = async (cols, startRow, numRows, sortKeys) => {
-        console.log(`[DataSource] Called: startRow=${startRow}, numRows=${numRows}, sortKeys=`, sortKeys, `filterTerm=`, filterTerm);
-        
         // Capture current state
         currentSortKeys = sortKeys;
         currentFilters = { global: filterTerm };
@@ -75,7 +73,6 @@
         const processed = getProcessedData(currentFilters, sortKeys);
         
         const result = processed.slice(startRow, startRow + numRows);
-        console.log(`[DataSource] Returning ${result.length} rows (total filtered: ${processed.length})`);
         return result;
     };
 
@@ -83,8 +80,6 @@
     let findTerm = $state("");
     
     const handleFind = async (term: string, direction: 'next' | 'previous', currentIndex: number) => {
-        console.log(`[Find] term="${term}", direction=${direction}, currentIndex=${currentIndex}`);
-        
         const processed = getProcessedData(currentFilters, currentSortKeys);
         
         // Search in processed data

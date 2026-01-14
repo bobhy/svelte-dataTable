@@ -12,8 +12,7 @@
 	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils';
-    import * as Dialog from '$lib/components/ui/dialog';
-    import { ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, ChevronUp } from '@lucide/svelte';
+    import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
     import { get } from 'svelte/store';
     import SortOptions from './SortOptions.svelte';
 
@@ -42,7 +41,6 @@
             
             // Reset and fetch
             untrack(() => {
-                console.log("[DataTable] Criteria changed. Resetting data.");
                 data = [];
                 hasMore = true;
                 isLoading = false;
@@ -187,7 +185,6 @@
         const unsubscribe = virtualizerStore.subscribe(v => {
             const items = v.getVirtualItems();
             const size = v.getTotalSize();
-            console.log(`[Virtualizer] Update: virtualItems=${items.length}, totalSize=${size}, data.length=${data.length}`);
             virtualItems = items;
             totalSize = size;
         });
@@ -220,8 +217,6 @@
         const len = data.length;
         const more = hasMore;
         const tContainer = tableContainer;
-        
-        console.log(`[Virtualizer] Updating options: count=${more ? len + 1 : len}, hasContainer=${!!tContainer}`);
         
         untrack(() => {
              const instance = get(virtualizerStore);
@@ -269,7 +264,7 @@
         if (isLoading || !hasMore) return;
         isLoading = true;
         try {
-            // Hueristic 1: Fetch Ahead (2x needed)
+            // Heuristic 1: Fetch Ahead (2x needed)
             const fetchCount = neededCount * 2;
             
             const cols = [config.keyColumn, ...config.columns.map(c => c.name)];
@@ -291,7 +286,6 @@
             // Immediately update virtualizer count to prevent race condition
             const instance = get(virtualizerStore);
             const newCount = hasMore ? data.length + 1 : data.length;
-            console.log(`[PerformFetch] Updating virtualizer count to ${newCount} (data.length=${data.length})`);
             instance.setOptions({
                 count: newCount,
                 getScrollElement: () => tableContainer || null,
@@ -299,8 +293,6 @@
                 measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
                 overscan: 5
             });
-            
-            // Pruning...
         } catch (e) {
              console.error("Fetch error", e);
         } finally {
@@ -334,7 +326,7 @@
             }
         }
         
-        // Also check "End of Grid" hueristic
+        // Also check "End of Grid" heuristic
         if (missingStart !== -1 && !isLoading && hasMore) {
              const needed = (end - missingStart) + 1;
              untrack(() => performFetch(missingStart, Math.max(needed, 10)));
