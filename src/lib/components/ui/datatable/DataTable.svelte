@@ -9,15 +9,15 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo } from './DataTableTypes';
+	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection } from './DataTableTypes';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils';
     import * as Dialog from '$lib/components/ui/dialog';
-    import { ArrowUp, ArrowDown, ArrowUpDown } from '@lucide/svelte';
+    import { ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, ChevronUp } from '@lucide/svelte';
     import { get } from 'svelte/store';
     import SortOptions from './SortOptions.svelte';
 
-	let { config, dataSource, onEdit, onSelection, class: className }: DataTableProps = $props();
+	let { config, dataSource, onEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
     // -- State --
 	let data = $state<any[]>([]);
@@ -27,11 +27,9 @@
     let columnSizing = $state({});
     let columnPinning = $state({ left: [], right: [] });
     
-    let globalFilter = $state(""); 
-    let findTerm = $state("");
-    
     // Auto-refresh when filter changes (debounce?)
     let lastFilter = "";
+    
     $effect(() => {
         if (globalFilter !== lastFilter) {
             lastFilter = globalFilter;
@@ -39,7 +37,7 @@
             untrack(() => {
                 data = [];
                 hasMore = true;
-                get(rowVirtualizer).setOptions({ count: 0 }); // Reset virtualizer count
+                get(virtualizerStore).setOptions({ count: 0 }); // Reset virtualizer count
                 performFetch(0, 20);
             });
         }
@@ -54,8 +52,6 @@
     
     // Sorting Dialog
     let showSortDialog = $state(false);
-
-    // -- Columns --
 
     // -- Columns --
     const columns = $derived(
@@ -154,7 +150,7 @@
     let headerContainer = $state<HTMLDivElement>();
     
     // 1. Create Virtualizer (can be created anytime)
-    const rowVirtualizer = createVirtualizer({
+    const virtualizerStore = createVirtualizer({
         count: 0,
         getScrollElement: () => tableContainer || null,
         estimateSize: () => estimatedRowHeight,
@@ -162,6 +158,27 @@
         overscan: 5
     });
 
+    // Reactive state derived from virtualizer store
+    let virtualItems = $state([]);
+    let totalSize = $state(0);
+    
+    $effect(() => {
+        const unsubscribe = virtualizerStore.subscribe(v => {
+            const items = v.getVirtualItems();
+            const size = v.getTotalSize();
+            console.log(`[Virtualizer] Update: virtualItems=${items.length}, totalSize=${size}, data.length=${data.length}`);
+            virtualItems = items;
+            totalSize = size;
+        });
+        
+        return () => unsubscribe();
+    });
+
+    // Monitor data changes (trigger reflow if needed, though virtualizer handles it)
+    $effect(() => {
+        const _ = data.length;
+        // ensure dependency
+    });
 
     // 2. Sync Header Scroll
     $effect(() => {
@@ -183,13 +200,13 @@
         const more = hasMore;
         const tContainer = tableContainer;
         
-        if (!tContainer) return;
-
+        console.log(`[Virtualizer] Updating options: count=${more ? len + 1 : len}, hasContainer=${!!tContainer}`);
+        
         untrack(() => {
-             const instance = get(rowVirtualizer);
+             const instance = get(virtualizerStore);
              instance.setOptions({
                  count: more ? len + 1 : len,
-                 getScrollElement: () => tContainer,
+                 getScrollElement: () => tContainer || null,
                  estimateSize: () => estimatedRowHeight,
                  measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
                  overscan: 5
@@ -214,7 +231,7 @@
                      // Debounce measurement to prevent ResizeObserver loop limit errors
                      if (resizeTimeout) clearTimeout(resizeTimeout);
                      resizeTimeout = setTimeout(() => {
-                         const instance = get(rowVirtualizer);
+                         const instance = get(virtualizerStore);
                          if (instance) instance.measure();
                      }, 20);
                  }
@@ -237,7 +254,8 @@
             const cols = [config.keyColumn, ...config.columns.map(c => c.name)];
             const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
             
-            const newRawRows = await dataSource(cols, startRow, fetchCount, sortKeys, { global: globalFilter });
+            // Remove filters from call
+            const newRawRows = await dataSource(cols, startRow, fetchCount, sortKeys);
             
             // Sparse-safe update
             if (data.length < startRow + newRawRows.length) {
@@ -247,7 +265,19 @@
                 data[startRow + i] = newRawRows[i];
             }
             
-            if (newRawRows.length < fetchCount) hasMore = false; 
+            if (newRawRows.length < fetchCount) hasMore = false;
+            
+            // Immediately update virtualizer count to prevent race condition
+            const instance = get(virtualizerStore);
+            const newCount = hasMore ? data.length + 1 : data.length;
+            console.log(`[PerformFetch] Updating virtualizer count to ${newCount} (data.length=${data.length})`);
+            instance.setOptions({
+                count: newCount,
+                getScrollElement: () => tableContainer || null,
+                estimateSize: () => estimatedRowHeight,
+                measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
+                overscan: 5
+            });
             
             // Pruning...
         } catch (e) {
@@ -259,8 +289,7 @@
 
     // Smart Infinite Scroll / Range Detection
     $effect(() => {
-        const instance = $rowVirtualizer;
-        const virtualItems = instance.getVirtualItems();
+        // check from state
         if (virtualItems.length === 0) {
             // Initial load
             if (data.length === 0 && hasMore && !isLoading) {
@@ -270,9 +299,6 @@
         }
         
         // Check finding missing data in visible range + buffer
-        // Look ahead buffer
-        // const buffer = virtualItems.length; // 1 screen
-        // const end = virtualItems[virtualItems.length - 1].index + buffer;
         const start = virtualItems[0].index;
         const end = virtualItems[virtualItems.length - 1].index;
         
@@ -288,14 +314,7 @@
         }
         
         // Also check "End of Grid" hueristic
-        // If we are near the end of KNOWN data, and hasMore.
-        // Or if we scrolled into a gap.
-        
         if (missingStart !== -1 && !isLoading && hasMore) {
-             // We need to fill from missingStart
-             // Needed = (end - missingStart) + buffer?
-             // Spec: "from visible row of active... down to end of data grid".
-             // We assume "end of grid" implies current viewport bottom.
              const needed = (end - missingStart) + 1;
              untrack(() => performFetch(missingStart, Math.max(needed, 10)));
         } else if (!isLoading && hasMore && end >= data.length - 5) {
@@ -306,14 +325,12 @@
 
     // -- Keyboard Navigation (Enhanced) --
     function handleKeyDown(e: KeyboardEvent) {
-        // if (isLoading) return; // Allow navigation while loading
+        const rowCount = data.length; 
         
-        const rowCount = data.length; // This might be sparse length?
-        // If we are "infinite", rowCount might be virtual?
-        // Use max known index?
-        
-        const instance = get(rowVirtualizer);
-        const virtualItems = instance.getVirtualItems();
+        const instance = get(virtualizerStore);
+        // virtualItems is already available in state, but let's use the instance for consistency in this function scope
+        // actually using the state `virtualItems` is safer visually.
+        const items = virtualItems; 
         const tContainer = tableContainer;
         
         // Helper to scroll maintaining relative position
@@ -323,8 +340,8 @@
         };
 
         const getPageSize = () => {
-             if (!tContainer || virtualItems.length === 0) return 10;
-             const rowHeight = virtualItems[0].size;
+             if (!tContainer || items.length === 0) return 10;
+             const rowHeight = items[0].size;
              return Math.floor(tContainer.clientHeight / rowHeight);
         }
 
@@ -332,16 +349,16 @@
         let newRow = activeRowIndex;
         let newCol = activeColIndex;
 
-        const targetItem = virtualItems.find(i => i.index === newRow);
+        const targetItem = items.find(i => i.index === newRow);
         
         switch(e.key) {
             case 'ArrowUp':
-                if (virtualItems.length > 0) {
+                if (items.length > 0) {
                      newRow = Math.max(0, newRow - 1);
                      
                      // Manual visibility check
                      // Find the item for the new row
-                     const item = virtualItems.find(i => i.index === newRow);
+                     const item = items.find(i => i.index === newRow);
                      if (item && tContainer) {
                          const itemTop = item.start;
                          const itemBottom = item.start + item.size;
@@ -365,12 +382,12 @@
                 handled = true;
                 break;
             case 'ArrowDown':
-                if (virtualItems.length > 0) {
-                     const last = virtualItems[virtualItems.length - 1].index;
+                if (items.length > 0) {
+                     const last = items[items.length - 1].index;
                      
                      newRow = newRow + 1;
                      
-                     const item = virtualItems.find(i => i.index === newRow);
+                     const item = items.find(i => i.index === newRow);
                      if (item && tContainer) {
                          const itemTop = item.start;
                          const itemBottom = item.start + item.size;
@@ -388,102 +405,35 @@
                 }
                 handled = true;
                 break;
-            case 'PageUp':
-                if (virtualItems.length > 0) {
+            // PageUp/Down omitted for brevity but logic is same as before, using instance.scrollToIndex
+             case 'PageUp':
+                if (items.length > 0) {
                     const pageSize = getPageSize();
-                    // We want to keep the active cell at the same *visual* offset from the top.
-                    // But 'virtualItems[0]' includes overscan, so it's not the visual top.
-                    // We need a stable anchor.
-                    // Let's rely on scrollRelative which sets 'start' alignment for (newRow - offset).
-                    
-                    // Offset = ActiveRow - ValidFirstRow
-                    // But ValidFirstRow is hard to get exactly.
-                    // Approximation: use 'virtualItems[0].index'. The 'scrollRelative' logic 
-                    // (targetTop = newRow - relativePos) -> (newRow - (Active - First)) -> (newRow - Active + First)
-                    // -> (Active - PageSize - Active + First) -> (First - PageSize).
-                    // This shifts the whole window up by PageSize. Correct.
-                    
-                    const first = virtualItems[0].index;
-                    const relativePos = activeRowIndex - first;
-                    
-                    newRow = Math.max(0, activeRowIndex - pageSize);
-                    
-                    // Apply scroll
-                    scrollRelative(newRow, relativePos); 
-                    
-                    // However, 'scrollRelative' aligns 'targetTop' to START.
-                    // If targetTop is inside the overscan area, it might effectively hide the new active row?
-                    // No, 'align: start' forces targetTop to be at the TOP of the viewport.
-                    // So 'newRow' (which is targetTop + relativeOffset) will be at 'relativeOffset' pixels down.
-                    // This effectively preserves visual position. 
-                    // Assuming 'relativePos' was relative to the TOP Rendered item.
-                    
-                    // Wait, if 'first' is NOT the visual top (due to overscan), then aligning 'first - pageSize' to Top
-                    // might mean the row 'newRow' is actually further down than expected, or if overscan changes...
-                    
-                    // Actually, if we use 'align: start' on 'targetTop', 'targetTop' becomes the new visual first row.
-                    // 'newRow' is 'targetTop' + 'relativePos'.
-                    // So 'newRow' will be 'relativePos' rows below the new visual top.
-                    // Previously, 'activeRow' was 'relativePos' rows below 'first'.
-                    // If 'first' was the visual top, then perfect.
-                    // If 'first' was in overscan (hidden), then 'activeRow' was 'relativePos' rows below that hidden item.
-                    // By making 'targetTop' the new visual top, and placing 'newRow' relative to it...
-                    // We might shift the visual position slightly if overscan behavior differs.
-                    // But 'scrollRelative' enforces 'align: start'. So 'targetTop' becomes VISUAL TOP.
-                    // So 'newRow' will appear 'relativePos' rows down from visual top.
-                    // This is generally correct behavior: "Keep relative position".
-                    // The only issue: 'activeRow' might have been relative to a *hidden* first row.
-                    // So visually 'activeRow' was at Y pixels.
-                    // Now 'newRow' is at Y pixels relative to new top.
-                    // If 'first' was -2 (hidden), relativePos = 2 (active at 0).
-                    // NewTop = ... 
-                    // Align NewTop to START (0).
-                    // NewRow is at 0 + 2 = 2.
-                    // So it moved from visual slot 0 to visual slot 2.
-                    // Relative visual position CHANGED.
-                    
-                    // Fix: We need relativePos to be relative to the VISUAL top.
-                    // We can estimate visual top using scrollTop / rowHeight?
-                    // Or finding the first item with item.start >= scrollTop.
-                    
-                    // For now, let's try the simpler fix: Force visibility check after scroll.
-                    // Like we did for Arrows.
-                    // But PageUp usually expects stable scroll.
-                    
-                    // Let's refine relativePos to be 'activeRow - index_of_first_visible'.
+                    const first = items[0].index;
                     let visualFirst = first;
                     if (tContainer) {
-                        const topScan = virtualItems.find(i => i.start >= tContainer.scrollTop);
+                        const topScan = items.find(i => i.start >= tContainer.scrollTop);
                         if (topScan) visualFirst = topScan.index;
                     }
                     const visualRelative = activeRowIndex - visualFirst;
-                    
                     newRow = Math.max(0, activeRowIndex - pageSize);
-                    
-                    // We want newRow to be at 'visualRelative' from top.
-                    // So TargetTop = newRow - visualRelative.
                     const targetTop = Math.max(0, newRow - visualRelative);
-                    
                     instance.scrollToIndex(targetTop, { align: 'start' });
                 }
                 handled = true;
                 break;
             case 'PageDown':
-                if (virtualItems.length > 0) {
+                if (items.length > 0) {
                     const pageSize = getPageSize();
-                    
-                    // Same logic for PageDown
-                    const first = virtualItems[0].index;
+                    const first = items[0].index;
                     let visualFirst = first;
                     if (tContainer) {
-                         const topScan = virtualItems.find(i => i.start >= tContainer.scrollTop);
+                         const topScan = items.find(i => i.start >= tContainer.scrollTop);
                          if (topScan) visualFirst = topScan.index;
                     }
                     const visualRelative = activeRowIndex - visualFirst;
-                    
                     const effectiveMax = hasMore ? data.length : data.length - 1;
                     newRow = Math.min(effectiveMax, activeRowIndex + pageSize);
-                    
                     const targetTop = Math.max(0, newRow - visualRelative);
                      instance.scrollToIndex(targetTop, { align: 'start' });
                 }
@@ -503,8 +453,6 @@
                 handled = true;
                 break;
             case 'End':
-                // For End, we might not know true max if infinite.
-                // Assuming data.length is valid end or we shouldn't allow End?
                 if (e.ctrlKey) newRow = rowCount - 1;
                 else newCol = columns.length - 1;
                 handled = true;
@@ -515,8 +463,6 @@
             e.preventDefault();
             activeRowIndex = newRow;
             activeColIndex = newCol;
-             // Ensure active row is somewhat valid?
-             // If we scrolled past data, we might trigger fetch.
         }
     }
 
@@ -535,22 +481,10 @@
             }
             selectedRowIndices = newSet;
             
-            // Notify parent
             if (onSelection) {
-                // We need to resolve indices to row keys/objects
-                // This might be expensive for large sets, but typically user selects a few.
-                // Protocol says: SelectedCellsCallback = (selectedCells: SelectedCell[]) => ...
-                // Wait, SelectedCell is { rowKey, columnKey }.
-                // If we are selecting ROWS, do we send all cells? 
-                // Or does the user expect row selection?
-                // The Type definition says `onSelection?: SelectedCellsCallback`.
-                // But my `selectedRowIndices` implies row selection.
-                // Let's just track indices internally for now.
-                // If the user wants row objects, we might need a different prop.
+                // Notify parent...
             }
         } else {
-            // Single click - clear selection? Or just focus?
-            // Standard grid behavior: click focuses, maybe clears multi-selection unless shift.
             if (selectedRowIndices.size > 0 && !e.shiftKey) {
                 selectedRowIndices = new Set();
             }
@@ -560,47 +494,23 @@
     function handleRowDoubleClick(index: number) {
         if (onEdit) {
             const row = uiRows[index];
-            if (row) onEdit(row.original, []); // onEdit expects (beforeData, afterData)? No.
-            // Type says: DataEditCallback = (before, after) => ...
-            // Wait, onEdit is passed to DataTable.
-            // In Transactions.svelte: double click?
-            // Transactions.svelte has NO onEdit prop passed to DataTable.
-            // So onEdit is undefined.
+            if (row) onEdit(row.original, []); 
         }
-        
-        // Emulate "Edit Mode"? 
-        // For now just safe guard.
     }
 
     // -- Public API --
     export function getActiveCell(): ActiveCellInfo | null {
         if (data.length === 0) return null;
         
-        const instance = get(rowVirtualizer);
-        const virtualItems = instance.getVirtualItems();
-        
-        // Find if the active row is in the virtual items
-        // virtualItems are the subset of rows currently rendered/measured
-        // We want the viewport relative index.
-        // If activeRowIndex is 100, and viewport shows 90-110.
-        // visual index is activeRowIndex - virtualItems[0].index ??
+        const items = virtualItems;
         
         let viewportRowIndex: number | null = null;
-        if (virtualItems.length > 0) {
-            const start = virtualItems[0].index;
-            const end = virtualItems[virtualItems.length - 1].index;
+        if (items.length > 0) {
+            const start = items[0].index;
+            const end = items[items.length - 1].index;
             
             if (activeRowIndex >= start && activeRowIndex <= end) {
-                // Determine 0-based index relative to the container TOP?
-                // The user asked for "visible position in the grid".
-                // If the grid shows 10 rows, 0..9.
-                // We can just conceptually return the offset.
                 viewportRowIndex = activeRowIndex - start; 
-                
-                // Correction: virtualItems might include overscan.
-                // "Visible" usually means strictly visible.
-                // But for now, returning relative to the rendered batch is the most honest answers from the Virtualizer.
-                // Let's rely on that.
             }
         }
 
@@ -612,10 +522,41 @@
         };
     }
 
+    export function scrollToRow(index: number) {
+        // Update active row
+        activeRowIndex = index;
+        
+        // Scroll to it
+        const instance = get(virtualizerStore);
+        instance.scrollToIndex(index, { align: 'start' });
+    }
+
+    async function handleFind(direction: FindDirection) {
+        if (!onFind || !findTerm) return;
+        
+        const resultIndex = await onFind(findTerm, direction, activeRowIndex);
+        if (resultIndex !== null && resultIndex !== undefined) {
+            scrollToRow(resultIndex);
+        }
+    }
+
+    // Auto-search when findTerm changes
+    let lastFindTerm = "";
+    $effect(() => {
+        const term = findTerm;
+        if (term && term !== lastFindTerm && onFind) {
+            lastFindTerm = term;
+            // Trigger search from current position (forward)
+            untrack(() => handleFind('next'));
+        } else if (!term) {
+            lastFindTerm = "";
+        }
+    });
+
     // Helpers
     function measureRow(node: HTMLElement, index: number) {
         // Initial measurement
-        const instance = get(rowVirtualizer);
+        const instance = get(virtualizerStore); // Store access is fine for non-reactive measure
         instance.measureElement(node);
 
         // Watch for size changes (e.g. content loading, wrapping)
@@ -624,7 +565,7 @@
                  // Wrap in rAF to ensure layout is settled / prevent loop errors
                  requestAnimationFrame(() => {
                      if (node.isConnected) {
-                         const inst = get(rowVirtualizer); 
+                         const inst = get(virtualizerStore); 
                          inst.measureElement(node);
                      }
                  });
@@ -648,8 +589,6 @@
         let wrapperStyles = "";
         let usesLineClamping = false;
         
-        // Alignment on Cell
-        // Alignment on Cell
         if (colConfig.justify === 'center') cellClasses += " text-center justify-center";
         else if (colConfig.justify === 'right') cellClasses += " text-right justify-end";
         else cellClasses += " text-left justify-start";
@@ -658,12 +597,9 @@
             cellClasses += " bg-primary/20 ring-1 ring-inset ring-primary";
         }
         
-        // Wrapping logic
         if (colConfig.wrappable === 'word') {
             wrapperClasses += " break-words whitespace-normal";
-            // Apply line clamping if maxLines is specified
             if (colConfig.maxLines && colConfig.maxLines > 0) {
-                // console.log('Applying line-clamp:', colConfig.maxLines, 'to column:', colConfig.name);
                 wrapperStyles += `display: -webkit-box; -webkit-line-clamp: ${colConfig.maxLines}; -webkit-box-orient: vertical; overflow: hidden;`;
                 usesLineClamping = true;
             }
@@ -671,7 +607,7 @@
              wrapperClasses += " truncate whitespace-nowrap";
         }
         
-        wrapperClasses += " leading-normal"; // Ensure consistent line height
+        wrapperClasses += " leading-normal"; 
 
         return { cellClasses, cellStyles, wrapperClasses, wrapperStyles, usesLineClamping };
     }
@@ -691,12 +627,23 @@
                 />
             {/if}
             {#if config.isFindable}
-                 <input 
-                    type="text" 
-                    placeholder="Find..." 
-                    bind:value={findTerm}
-                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                />
+                <div class="flex gap-1 items-center w-full max-w-sm">
+                    <input 
+                        type="text" 
+                        placeholder="Find..." 
+                        bind:value={findTerm}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter') handleFind(e.shiftKey ? 'previous' : 'next');
+                        }}
+                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <button class="p-2 hover:bg-muted rounded" onclick={() => handleFind('previous')} title="Find Previous">
+                        <ChevronUp class="w-4 h-4" />
+                    </button>
+                    <button class="p-2 hover:bg-muted rounded" onclick={() => handleFind('next')} title="Find Next">
+                        <ChevronDown class="w-4 h-4" />
+                    </button>
+                </div>
             {/if}
         </div>
     {/if}
@@ -747,12 +694,12 @@
         onkeydown={handleKeyDown}
     >
         <div 
-            style="height: {$rowVirtualizer.getTotalSize()}px; width: 100%; position: relative;" 
+            style="height: {totalSize}px; width: 100%; position: relative;" 
             class="w-full"
         >
             <!-- Wrapper for flow layout positioning -->
-            <div style="transform: translateY({$rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px);">
-            {#each $rowVirtualizer.getVirtualItems() as virtualRow (virtualRow.key)}
+            <div style="transform: translateY({virtualItems[0]?.start ?? 0}px);">
+            {#each virtualItems as virtualRow (virtualRow.key)}
                 <!-- Render the row -->
                  {@const row = uiRows[virtualRow.index]}
                  {#if row}

@@ -29,8 +29,7 @@ export type DataSourceCallback = (
     columnKeys: string[],
     startRow: number,
     numRows: number,
-    sortKeys: SortKey[],
-    filters?: { global?: string }
+    sortKeys: SortKey[]
 ) => Promise<any[]>; // Returns array of row objects
 
 // Edit Callback Types
@@ -58,6 +57,8 @@ export interface DataTableProps {
     onEdit?: DataEditCallback;
     onSelection?: SelectedCellsCallback;
     class?: string;
+    globalFilter?: string;
+    findTerm?: string;
 }
 
 export interface ActiveCellInfo {
