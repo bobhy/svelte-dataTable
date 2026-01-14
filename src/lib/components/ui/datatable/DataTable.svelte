@@ -47,6 +47,15 @@
     let activeRowIndex = $state(0);
     let activeColIndex = $state(0);
 
+    // "Not Found" Notification State
+    let notFoundVisible = $state(false);
+    let notFoundPosition = $state({ x: 0, y: 0 });
+    let notFoundSource = $state<'input' | 'prev' | 'next'>('input');
+    let notFoundTimeout: ReturnType<typeof setTimeout> | null = null;
+    let findInputElement = $state<HTMLInputElement>();
+    let findPrevButton = $state<HTMLButtonElement>();
+    let findNextButton = $state<HTMLButtonElement>();
+
     // Selection & Editing
     let selectedRowIndices = $state<Set<number>>(new Set());
     
@@ -531,13 +540,53 @@
         instance.scrollToIndex(index, { align: 'start' });
     }
 
-    async function handleFind(direction: FindDirection) {
+    async function handleFind(direction: FindDirection, sourceElement?: HTMLElement) {
         if (!onFind || !findTerm) return;
         
         const resultIndex = await onFind(findTerm, direction, activeRowIndex);
         if (resultIndex !== null && resultIndex !== undefined) {
             scrollToRow(resultIndex);
+        } else {
+            // No match found - show notification
+            showNotFoundNotification(sourceElement);
         }
+    }
+
+    function showNotFoundNotification(sourceElement?: HTMLElement) {
+        // Clear any existing timeout
+        if (notFoundTimeout) {
+            clearTimeout(notFoundTimeout);
+            notFoundTimeout = null;
+        }
+
+        if (sourceElement) {
+            const rect = sourceElement.getBoundingClientRect();
+            
+            // Use viewport coordinates directly since we're positioning relative to viewport
+            if (sourceElement.classList.contains('find-prev-btn') || sourceElement.classList.contains('find-next-btn')) {
+                // Position above the button
+                notFoundPosition = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top - 30  // Position above the button
+                };
+                notFoundSource = sourceElement.classList.contains('find-prev-btn') ? 'prev' : 'next';
+            } else {
+                // Position near the input field (bottom right)
+                notFoundPosition = {
+                    x: rect.right - 50,
+                    y: rect.bottom + 10  // Position below the input
+                };
+                notFoundSource = 'input';
+            }
+        }
+
+        notFoundVisible = true;
+
+        // Auto-hide after 1 second with fade-out
+        notFoundTimeout = setTimeout(() => {
+            notFoundVisible = false;
+            notFoundTimeout = null;
+        }, 1000);
     }
 
     // Auto-search when findTerm changes
@@ -547,7 +596,7 @@
         if (term && term !== lastFindTerm && onFind) {
             lastFindTerm = term;
             // Trigger search from current position (forward)
-            untrack(() => handleFind('next'));
+            untrack(() => handleFind('next', findInputElement));
         } else if (!term) {
             lastFindTerm = "";
         }
@@ -614,7 +663,7 @@
 
 </script>
 
-<div class={cn("flex flex-col h-full w-full border rounded-md overflow-hidden bg-background", className)}>
+<div class={cn("flex flex-col h-full w-full border rounded-md overflow-hidden bg-background relative", className)}>
     <!-- Toolbar -->
     {#if config.isFilterable || config.isFindable}
         <div class="flex-none p-2 border-b bg-muted/20 flex gap-2">
@@ -629,18 +678,29 @@
             {#if config.isFindable}
                 <div class="flex gap-1 items-center w-full max-w-sm">
                     <input 
+                        bind:this={findInputElement}
                         type="text" 
                         placeholder="Find..." 
                         bind:value={findTerm}
                         onkeydown={(e) => {
-                            if (e.key === 'Enter') handleFind(e.shiftKey ? 'previous' : 'next');
+                            if (e.key === 'Enter') handleFind(e.shiftKey ? 'previous' : 'next', e.currentTarget);
                         }}
-                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 find-input"
                     />
-                    <button class="p-2 hover:bg-muted rounded" onclick={() => handleFind('previous')} title="Find Previous">
+                    <button 
+                        bind:this={findPrevButton}
+                        class="p-2 hover:bg-muted rounded find-prev-btn" 
+                        onclick={(e) => handleFind('previous', e.currentTarget)} 
+                        title="Find Previous"
+                    >
                         <ChevronUp class="w-4 h-4" />
                     </button>
-                    <button class="p-2 hover:bg-muted rounded" onclick={() => handleFind('next')} title="Find Next">
+                    <button 
+                        bind:this={findNextButton}
+                        class="p-2 hover:bg-muted rounded find-next-btn" 
+                        onclick={(e) => handleFind('next', e.currentTarget)} 
+                        title="Find Next"
+                    >
                         <ChevronDown class="w-4 h-4" />
                     </button>
                 </div>
@@ -754,4 +814,14 @@
         sorting={sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }))} 
         onApply={updateSorting}
     />
+    
+    <!-- "Not Found" Notification -->
+    {#if notFoundVisible}
+        <div 
+            class="fixed px-3 py-1.5 bg-destructive/90 text-destructive-foreground text-xs rounded-full shadow-lg pointer-events-none z-50 transition-opacity duration-300"
+            style="left: {notFoundPosition.x}px; top: {notFoundPosition.y}px; transform: translate(-50%, 0);"
+        >
+            not found
+        </div>
+    {/if}
 </div>

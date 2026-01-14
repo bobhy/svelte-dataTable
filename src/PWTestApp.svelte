@@ -79,7 +79,35 @@
     
     {#if isReady}
         <div id="grid-container" class="h-[calc(100vh-100px)] w-full p-4 fixed-row-height">
-            <DataTable bind:this={tableComponent} {config} {dataSource} class="h-full w-full" />
+            <DataTable 
+                bind:this={tableComponent} 
+                {config} 
+                {dataSource}
+                onFind={async (term, direction, currentIndex) => {
+                    // Simple linear search through test data
+                    const lowerTerm = term.toLowerCase();
+                    const totalRows = (window as any).__TEST_CONFIG__?.rows ?? 50;
+                    
+                    if (direction === 'next') {
+                        for (let i = currentIndex + 1; i < totalRows; i++) {
+                            // Check if row contains the term (simplified search)
+                            const rowText = `R${i}`;
+                            if (rowText.toLowerCase().includes(lowerTerm)) {
+                                return i;
+                            }
+                        }
+                    } else {
+                        for (let i = currentIndex - 1; i >= 0; i--) {
+                            const rowText = `R${i}`;
+                            if (rowText.toLowerCase().includes(lowerTerm)) {
+                                return i;
+                            }
+                        }
+                    }
+                    return null;  // Not found
+                }}
+                class="h-full w-full" 
+            />
         </div>
     {:else}
         <div>Loading...</div>
