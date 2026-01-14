@@ -24,6 +24,7 @@
     let isLoading = $state(false);
 	let sorting = $state<SortingState>([]);
     let columnSizing = $state({});
+    let columnSizingInfo = $state<any>({});
     let columnPinning = $state({ left: [], right: [] });
     
     // Auto-refresh when criteria changes (Filter or Sort)
@@ -106,22 +107,36 @@
         state: {
             get sorting() { return sorting; },
             get columnSizing() { return columnSizing; },
+            get columnSizingInfo() { return columnSizingInfo; },
             get columnPinning() { return columnPinning; }
         },
         onSortingChange: (updater) => {
             if (typeof updater === 'function') sorting = updater(sorting);
             else sorting = updater;
         },
+        onColumnSizingInfoChange: (updater) => {
+            if (typeof updater === 'function') columnSizingInfo = updater(columnSizingInfo);
+            else columnSizingInfo = updater;
+        },
         onColumnSizingChange: (updater) => {
-            if (typeof updater === 'function') columnSizing = updater(columnSizing);
-            else columnSizing = updater;
+            let newVal;
+            if (typeof updater === 'function') newVal = updater(columnSizing);
+            else newVal = updater;
+            columnSizing = newVal;
         }
 	};
+    
+    function getColumnWidth(id: string, sizing: any, defaultSize: number) {
+        const w = sizing[id] ?? defaultSize;
+        // console.log(`[WidthHelper] ${id} -> ${w}`);
+        return w;
+    }
 
     const table = createTable(options);
 
     // -- Sync State to Table --
     let uiRows = $state<Row<any>[]>([]);
+    let headerGroups = $state(table.getHeaderGroups());
 
     $effect(() => {
         const snapshot = $state.snapshot(data);
@@ -129,21 +144,22 @@
         const sortState = sorting;
         const sizeState = columnSizing;
         const pinState = columnPinning;
-
+        
         untrack(() => {
              table.setOptions({
+                ...options,
                 data: snapshot,
                 columns: colState,
-                getCoreRowModel: getCoreRowModel(),
                 state: {
                     ...table.getState(),
                     sorting: sortState,
                     columnSizing: sizeState,
+                    columnSizingInfo: columnSizingInfo, // Sync persistent state
                     columnPinning: pinState
-                },
-                enableColumnResizing: true
+                }
             });
             uiRows = table.getRowModel().rows;
+            headerGroups = table.getHeaderGroups();
         });
     });
 
@@ -735,12 +751,12 @@
     {/if}
 
     <!-- Header -->
-    <div bind:this={headerContainer} class="flex-none border-b bg-muted/40 font-medium text-sm overflow-x-auto" style="scrollbar-gutter: stable;">
+    <div bind:this={headerContainer} class="flex-none border-b bg-muted/40 font-medium text-sm overflow-hidden" style="scrollbar-gutter: stable;">
         <div class="flex w-full min-w-max">
-             {#each table.getHeaderGroups() as headerGroup}
+             {#each headerGroups as headerGroup}
                 {#each headerGroup.headers as header}
-                    <div class="px-4 py-3 text-left font-medium flex items-center gap-1 border-r border-transparent hover:border-border/50" 
-                         style="width: {header.getSize()}px;">
+                    <div class="px-4 py-3 text-left font-medium flex items-center gap-1 border-r border-transparent hover:border-border/50 shrink-0 relative group" 
+                         style="width: {getColumnWidth(header.column.id, columnSizing, header.getSize())}px;">
                         {#if !header.isPlaceholder}
                             <button type="button" class="truncate w-full text-left flex items-center gap-1" onclick={() => showSortDialog = true}>
                                 <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
@@ -758,10 +774,16 @@
                                 {/if}
                             </button>
                             <div 
-                                class="w-1 h-full cursor-col-resize hover:bg-primary"
+                                class="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary touch-none select-none opacity-0 group-hover:opacity-100 transition-opacity"
                                 role="separator"
-                                onmousedown={header.getResizeHandler()}
-                                ontouchstart={header.getResizeHandler()}
+                                onmousedown={(e) => {
+                                    header.getResizeHandler()(e);
+                                }}
+                                ontouchstart={(e) => {
+                                    header.getResizeHandler()(e);
+                                    e.stopPropagation();
+                                }}
+                                onclick={(e) => e.stopPropagation()} 
                             ></div>
                         {/if}
                     </div>
@@ -799,7 +821,7 @@
                     <div
                         data-index={virtualRow.index} 
                         use:measureRow={virtualRow.index}
-                        class={cn("flex border-b w-full hover:bg-muted/50 transition-colors data-[state=selected]:bg-muted", 
+                        class={cn("flex border-b w-full min-w-max hover:bg-muted/50 transition-colors data-[state=selected]:bg-muted", 
                             activeRowIndex === virtualRow.index ? "bg-muted" : "")}
                         data-state={selectedRowIndices.has(virtualRow.index) ? "selected" : undefined}
                         role="row"
@@ -810,9 +832,10 @@
                             {@const colConfig = (cell.column.columnDef.meta as any)?.config as DataTableColumn}
                             {@const isFocused = virtualRow.index === activeRowIndex && cellIndex === activeColIndex}
                             {@const cellStyle = colConfig ? getCellStyles(colConfig, isFocused) : { cellClasses: "", cellStyles: "", wrapperClasses: "", wrapperStyles: "", usesLineClamping: false }}
+                            {@const _size = getColumnWidth(cell.column.id, columnSizing, cell.column.getSize())} 
                             <div 
-                                class={cn("px-4 py-2 text-sm border-r border-transparent", cellStyle.usesLineClamping ? "" : "flex items-center", cellStyle.cellClasses)}
-                                style="width: {cell.column.getSize()}px; {cellStyle.cellStyles}"
+                                class={cn("px-4 py-2 text-sm border-r border-transparent shrink-0", cellStyle.usesLineClamping ? "" : "flex items-center", cellStyle.cellClasses)}
+                                style="width: {_size}px; {cellStyle.cellStyles}"
                                 role="gridcell"
                             >
                                 <div class={cellStyle.wrapperClasses} style={cellStyle.wrapperStyles}>
