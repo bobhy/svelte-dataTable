@@ -51,11 +51,26 @@ export interface SelectedCell {
 
 export type SelectedCellsCallback = (selectedCells: SelectedCell[]) => Promise<string | null>;
 
+// Find Callback Types
+export type FindDirection = 'next' | 'previous';
+
+export interface FindResult {
+    rowIndex: number;      // 0-based row index in the dataset
+    columnName?: string;   // Optional: column containing the match
+}
+
+export type FindCallback = (
+    searchTerm: string,
+    direction: FindDirection,
+    currentRowIndex: number
+) => Promise<FindResult | number | null>;  // Can return FindResult, just row index, or null
+
 export interface DataTableProps {
     config: DataTableConfig;
     dataSource: DataSourceCallback;
     onEdit?: DataEditCallback;
     onSelection?: SelectedCellsCallback;
+    onFind?: FindCallback;
     class?: string;
     globalFilter?: string;
     findTerm?: string;

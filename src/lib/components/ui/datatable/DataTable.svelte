@@ -9,7 +9,7 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection } from './DataTableTypes';
+	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils';
     import * as Dialog from '$lib/components/ui/dialog';
@@ -531,21 +531,41 @@
         };
     }
 
-    export function scrollToRow(index: number) {
+    export function scrollToRow(index: number, columnName?: string) {
         // Update active row
         activeRowIndex = index;
+        
+        // Update active column if specified
+        if (columnName) {
+            const colIndex = columns.findIndex(col => col.accessorKey === columnName);
+            if (colIndex !== -1) {
+                activeColIndex = colIndex;
+            }
+        }
         
         // Scroll to it
         const instance = get(virtualizerStore);
         instance.scrollToIndex(index, { align: 'start' });
     }
 
-    async function handleFind(direction: FindDirection, sourceElement?: HTMLElement) {
+    async function handleFind(direction: FindDirection, sourceElement?: HTMLElement, fromIndex?: number) {
         if (!onFind || !findTerm) return;
         
-        const resultIndex = await onFind(findTerm, direction, activeRowIndex);
-        if (resultIndex !== null && resultIndex !== undefined) {
-            scrollToRow(resultIndex);
+        // If fromIndex is provided, use it. Otherwise use activeRowIndex.
+        // This allows searching from (activeRowIndex - 1) when typing to keep the current match.
+        const startIndex = fromIndex !== undefined ? fromIndex : activeRowIndex;
+        
+        const result = await onFind(findTerm, direction, startIndex);
+        
+        // Handle different return types: FindResult object, number, or null
+        if (result !== null && result !== undefined) {
+            if (typeof result === 'number') {
+                // Legacy: just a row index
+                scrollToRow(result);
+            } else {
+                // FindResult object with rowIndex and optional columnName
+                scrollToRow(result.rowIndex, result.columnName);
+            }
         } else {
             // No match found - show notification
             showNotFoundNotification(sourceElement);
@@ -596,7 +616,9 @@
         if (term && term !== lastFindTerm && onFind) {
             lastFindTerm = term;
             // Trigger search from current position (forward)
-            untrack(() => handleFind('next', findInputElement));
+            // Start from activeRowIndex - 1 so that the current row is checked first
+            // (assuming onFind searches strictly after the given index)
+            untrack(() => handleFind('next', findInputElement, activeRowIndex - 1));
         } else if (!term) {
             lastFindTerm = "";
         }

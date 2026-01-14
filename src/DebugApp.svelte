@@ -63,21 +63,35 @@
     const handleFind = async (term: string, direction: 'next' | 'previous', currentIndex: number) => {
         console.log(`[Find] term="${term}", direction=${direction}, currentIndex=${currentIndex}`);
         
-        // Simple search in test data
+        // Search in test data across all columns
         const lowerTerm = term.toLowerCase();
-        const checkRow = (index: number) => {
-            if (index < 0 || index >= testData.length) return false;
+        
+        const findInRow = (index: number): string | null => {
+            if (index < 0 || index >= testData.length) return null;
             const row = testData[index];
-            return Object.values(row).some(v => String(v).toLowerCase().includes(lowerTerm));
+            
+            // Search through all columns to find which one contains the match
+            for (const [key, value] of Object.entries(row)) {
+                if (String(value).toLowerCase().includes(lowerTerm)) {
+                    return key;  // Return the column name
+                }
+            }
+            return null;
         };
         
         if (direction === 'next') {
             for (let i = currentIndex + 1; i < testData.length; i++) {
-                if (checkRow(i)) return i;
+                const columnName = findInRow(i);
+                if (columnName) {
+                    return { rowIndex: i, columnName };
+                }
             }
         } else {
             for (let i = currentIndex - 1; i >= 0; i--) {
-                if (checkRow(i)) return i;
+                const columnName = findInRow(i);
+                if (columnName) {
+                    return { rowIndex: i, columnName };
+                }
             }
         }
         
