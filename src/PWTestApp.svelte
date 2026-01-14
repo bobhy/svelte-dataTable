@@ -13,6 +13,7 @@
   let dataSource: any = $state(() => Promise.resolve([]));
   let isReady = $state(false);
   let tableComponent: any = $state();
+  let currentFilter = $state("");
   
   // Test config injection interface
   interface TestConfig {
@@ -62,7 +63,8 @@
     }
 
     config = finalConfig;
-    dataSource = ds.getRows.bind(ds);
+    dataSource = (cols: string[], start: number, num: number, sort: any[]) => 
+        ds.getRows(cols, start, num, sort, { global: currentFilter });
     isReady = true;
 
     // Expose API for testing
@@ -83,6 +85,7 @@
                 bind:this={tableComponent} 
                 {config} 
                 {dataSource}
+                bind:globalFilter={currentFilter}
                 onFind={async (term, direction, currentIndex) => {
                     // Search through test data across all columns
                     const lowerTerm = term.toLowerCase();

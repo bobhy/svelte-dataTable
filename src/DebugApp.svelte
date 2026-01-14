@@ -31,29 +31,51 @@
         ]
     };
 
-    const dataSource: DataSourceCallback = async (cols, startRow, numRows, sortKeys) => {
-        console.log(`[DataSource] Called: startRow=${startRow}, numRows=${numRows}, sortKeys=`, sortKeys);
+    // State to track current view params
+    let currentSortKeys: any[] = [];
+    let currentFilters: any = {};
+
+    // Helper to get processed data
+    const getProcessedData = (filters: any, sortKeys: any[]) => {
+        let processed = [...testData];
         
-        // Simulate async delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        let sorted = [...testData];
+        // Apply filtering
+        if (filters?.global) {
+            const term = filters.global.toLowerCase();
+            processed = processed.filter(row => 
+                Object.values(row).some(val => String(val).toLowerCase().includes(term))
+            );
+        }
         
         // Apply sorting
-        if (sortKeys.length > 0) {
+        if (sortKeys && sortKeys.length > 0) {
             const key = sortKeys[0].key;
             const dir = sortKeys[0].direction === 'desc' ? -1 : 1;
-            sorted.sort((a, b) => {
-                const aVal = a[key];
-                const bVal = b[key];
+            processed.sort((a, b) => {
+                const aVal = a[key as keyof typeof a];
+                const bVal = b[key as keyof typeof b];
                 if (aVal < bVal) return -dir;
                 if (aVal > bVal) return dir;
                 return 0;
             });
         }
+        return processed;
+    };
+
+    const dataSource: DataSourceCallback = async (cols, startRow, numRows, sortKeys) => {
+        console.log(`[DataSource] Called: startRow=${startRow}, numRows=${numRows}, sortKeys=`, sortKeys, `filterTerm=`, filterTerm);
         
-        const result = sorted.slice(startRow, startRow + numRows);
-        console.log(`[DataSource] Returning ${result.length} rows`);
+        // Capture current state
+        currentSortKeys = sortKeys;
+        currentFilters = { global: filterTerm };
+
+        // Simulate async delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const processed = getProcessedData(currentFilters, sortKeys);
+        
+        const result = processed.slice(startRow, startRow + numRows);
+        console.log(`[DataSource] Returning ${result.length} rows (total filtered: ${processed.length})`);
         return result;
     };
 
@@ -63,12 +85,14 @@
     const handleFind = async (term: string, direction: 'next' | 'previous', currentIndex: number) => {
         console.log(`[Find] term="${term}", direction=${direction}, currentIndex=${currentIndex}`);
         
-        // Search in test data across all columns
+        const processed = getProcessedData(currentFilters, currentSortKeys);
+        
+        // Search in processed data
         const lowerTerm = term.toLowerCase();
         
         const findInRow = (index: number): string | null => {
-            if (index < 0 || index >= testData.length) return null;
-            const row = testData[index];
+            if (index < 0 || index >= processed.length) return null;
+            const row = processed[index];
             
             // Search through all columns to find which one contains the match
             for (const [key, value] of Object.entries(row)) {
@@ -80,7 +104,7 @@
         };
         
         if (direction === 'next') {
-            for (let i = currentIndex + 1; i < testData.length; i++) {
+            for (let i = currentIndex + 1; i < processed.length; i++) {
                 const columnName = findInRow(i);
                 if (columnName) {
                     return { rowIndex: i, columnName };

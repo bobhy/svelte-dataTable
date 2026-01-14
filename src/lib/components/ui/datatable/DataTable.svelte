@@ -27,17 +27,27 @@
     let columnSizing = $state({});
     let columnPinning = $state({ left: [], right: [] });
     
-    // Auto-refresh when filter changes (debounce?)
+    // Auto-refresh when criteria changes (Filter or Sort)
     let lastFilter = "";
+    let lastSortJson = JSON.stringify([]);
     
     $effect(() => {
-        if (globalFilter !== lastFilter) {
-            lastFilter = globalFilter;
+        const f = globalFilter;
+        const s = sorting;
+        const sJson = JSON.stringify(s);
+        
+        if (f !== lastFilter || sJson !== lastSortJson) {
+            lastFilter = f;
+            lastSortJson = sJson;
+            
             // Reset and fetch
             untrack(() => {
+                console.log("[DataTable] Criteria changed. Resetting data.");
                 data = [];
                 hasMore = true;
-                get(virtualizerStore).setOptions({ count: 0 }); // Reset virtualizer count
+                isLoading = false;
+                const instance = get(virtualizerStore);
+                if (instance) instance.setOptions({ count: 0 });
                 performFetch(0, 20);
             });
         }
@@ -138,6 +148,8 @@
             uiRows = table.getRowModel().rows;
         });
     });
+
+
 
     // Helper to sync Sort State (TanStack <-> Internal/UI)
     function updateSorting(newSortKeys: SortKey[]) {
