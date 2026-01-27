@@ -40,6 +40,4 @@ export const sveltekitOptimizeDepsExclude = [
     "$app/stores",
     "$app/navigation",
     "$app/forms",
-    "sveltekit-superforms",
-    "formsnap"
 ];

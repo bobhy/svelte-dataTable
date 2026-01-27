@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import { TestGridDataSource } from './TestGridDataSource.js';
+import { TestGridDataSource } from './TestGridDataSource.ts';
 
 describe('TestGridDataSource', () => {
     it('should generate correct number of columns', () => {

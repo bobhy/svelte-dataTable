@@ -1,13 +1,13 @@
 <script lang="ts">
-    import * as Dialog from "$lib/components/ui/dialog/index.js";
-    import { Button } from "$lib/components/ui/button/index.js";
-    import { Input } from "$lib/components/ui/input/index.js";
-    import { Label } from "$lib/components/ui/label/index.js";
-    import * as Form from "$lib/components/ui/form/index.js";
+    import * as Dialog from "$lib/components/ui/dialog/index.ts";
+    import { Button } from "$lib/components/ui/button/index.ts";
+    import { Input } from "$lib/components/ui/input/index.ts";
+    import { Label } from "$lib/components/ui/label/index.ts";
+    import * as Form from "$lib/components/ui/form/index.ts";
     import { superForm, defaults } from "sveltekit-superforms";
     import { zod } from "sveltekit-superforms/adapters";
     import { z } from "zod";
-    import type { DataTableColumn, RowEditCallback, RowAction } from "./DataTableTypes.js";
+    import type { DataTableColumn, RowEditCallback, RowAction } from "./DataTableTypes.ts";
     import { toast } from "svelte-sonner";
 
     let { 
