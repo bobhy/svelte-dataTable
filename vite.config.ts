@@ -19,6 +19,14 @@ export default defineConfig(({ mode }) => ({
     },
     build: {
         sourcemap: mode === "development" ? "inline" : false,
+        // suppressing warnings about externalized modules
+        // (against the advice of Claude Opus 4.5, "can help diagnose issues if the arise with that dependency")
+        rollupOptions: {
+            onwarn(warning, warn) {
+                if (warning.message.includes('externalized for browser compatibility')) return;
+                warn(warning);
+            }
+        }
     },
     server: {
         port: 5173,
