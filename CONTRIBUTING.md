@@ -11,6 +11,19 @@
 > - If the behavior changes, update existing tests.
 > - Ensure all tests pass before completing the task.
 
-### Running Tests
-- **Unit Tests**: `npm run test` (Vitest)
-- **E2E Tests**: `CI=true npx playwright test` (Playwright)
+### Available Tests & Checks
+
+| Command | Description |
+|---------|-------------|
+| `npx vitest run` | Run all Vitest unit/integration tests (single run) |
+| `npx vitest` | Run Vitest tests in watch mode (interactive) |
+| `npx svelte-check --tsconfig ./tsconfig.json` | TypeScript & Svelte type checking<br>2 errors about excessively deep instantiation are "normal", might be result of using zod. |
+| `npx playwright test` | Run all Playwright E2E tests |
+| `npx playwright test tests/<file>.spec.ts` | Run a specific Playwright test file |
+| `npm run build` | Build the project (verifies compilation) |
+
+### Recommended Workflow
+
+1. **Before committing**: Run `npx vitest run` and `npx svelte-check` to catch errors early.
+2. **For UI changes**: Run `npx playwright test` to verify E2E functionality.
+3. **For development**: Use `npx vitest` (watch mode) for rapid feedback.

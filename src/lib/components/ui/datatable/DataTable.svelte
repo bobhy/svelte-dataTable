@@ -9,14 +9,14 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer, type VirtualItem } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes';
+	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes.js';
 	import { untrack } from 'svelte';
-    import { cn } from '$lib/utils';
+    import { cn } from '$lib/utils.js';
     import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
     import { get } from 'svelte/store';
     import SortOptions from './SortOptions.svelte';
     import RowEditForm from './RowEditForm.svelte';
-    import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes';
+    import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.js';
 
 	let { config, dataSource, onEdit, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
@@ -109,7 +109,7 @@
 
     // -- Columns --
     const columns = $derived(
-        config.columns.map((col) => ({
+        config.columns.map((col: DataTableColumn) => ({
             accessorKey: col.name,
             header: col.title || col.name,
             enableSorting: col.isSortable ?? false,
@@ -159,7 +159,10 @@
             if (typeof updater === 'function') newVal = updater(columnSizing);
             else newVal = updater;
             columnSizing = newVal;
-        }
+        },
+        filterFns: {},
+        sortingFns: {},
+        aggregationFns: {}
 	};
     
     function getColumnWidth(id: string, sizing: any, defaultSize: number) {
@@ -601,9 +604,9 @@
 
         return {
             dataRowIndex: activeRowIndex,
-            dataColumnName: columns[activeColIndex].accessorKey as string,
+            dataColumnName: (columns[activeColIndex] as any).accessorKey as string,
             viewportRowIndex,
-            viewportColumnName: columns[activeColIndex].accessorKey as string
+            viewportColumnName: (columns[activeColIndex] as any).accessorKey as string
         };
     }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-    import type { DataTableColumn, SortKey } from './DataTableTypes';
+    import type { DataTableColumn, SortKey } from './DataTableTypes.js';
 
-    import * as Dialog from "$lib/components/ui/dialog";
+    import * as Dialog from "$lib/components/ui/dialog/index.js";
     
     // Fallback styles for button since Button component is missing
     const btnClass = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2";
@@ -46,7 +46,7 @@
         const prevKeys = localSorting.slice(0, level).map(s => s.key);
         return [
             { name: 'none', title: '(None)' },
-            ...sortableCols.filter(c => !prevKeys.includes(c.name))
+            ...sortableCols.filter((c: DataTableColumn) => !prevKeys.includes(c.name))
         ];
     }
 </script>

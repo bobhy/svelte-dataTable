@@ -1,13 +1,13 @@
 <script lang="ts">
-    import * as Dialog from "$lib/components/ui/dialog";
-    import { Button } from "$lib/components/ui/button";
-    import { Input } from "$lib/components/ui/input";
-    import { Label } from "$lib/components/ui/label";
-    import * as Form from "$lib/components/ui/form";
+    import * as Dialog from "$lib/components/ui/dialog/index.js";
+    import { Button } from "$lib/components/ui/button/index.js";
+    import { Input } from "$lib/components/ui/input/index.js";
+    import { Label } from "$lib/components/ui/label/index.js";
+    import * as Form from "$lib/components/ui/form/index.js";
     import { superForm, defaults } from "sveltekit-superforms";
     import { zod } from "sveltekit-superforms/adapters";
     import { z } from "zod";
-    import type { DataTableColumn, RowEditCallback, RowAction } from "./DataTableTypes";
+    import type { DataTableColumn, RowEditCallback, RowAction } from "./DataTableTypes.js";
     import { toast } from "svelte-sonner";
 
     let { 
@@ -25,6 +25,7 @@
     // Dynamically build schema based on columns
     // We assume all fields are strings for now, can be enhanced with type metadata in columns later
     const schemaShape: Record<string, z.ZodTypeAny> = {};
+    // svelte-ignore state_referenced_locally - Schema is built once at component creation, intentionally non-reactive
     columns.forEach(col => {
         schemaShape[col.name] = z.string().optional(); 
         // TODO: Infer types from value or config if available
@@ -33,6 +34,7 @@
 
     // Initialize form
     // In SPA mode, we use 'defaults' to create initial form data structure
+    // svelte-ignore state_referenced_locally - Initial form data is captured once, synced via $effect
     const initialData = defaults(data || {}, zod(schema));
     
     const { form, errors, enhance, message, delayed } = superForm(initialData, {
