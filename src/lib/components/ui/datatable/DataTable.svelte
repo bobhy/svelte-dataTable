@@ -15,8 +15,10 @@
     import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
     import { get } from 'svelte/store';
     import SortOptions from './SortOptions.svelte';
+    import RowEditForm from './RowEditForm.svelte';
+    import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes';
 
-	let { config, dataSource, onEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
+	let { config, dataSource, onEdit, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
     // -- State --
 	let data = $state<any[]>([]);
@@ -70,6 +72,40 @@
     
     // Sorting Dialog
     let showSortDialog = $state(false);
+
+    // Row Editing
+    let editingRow: any = $state(null);
+    let isEditDialogOpen = $state(false);
+
+    async function handleRowEdit(action: RowAction, formData: any) {
+        if (!onRowEdit) return { error: "No edit handler defined" };
+
+        const result = await onRowEdit(action, formData);
+        
+        if (result === true) {
+            // Update local cache
+            if (action === 'delete') {
+                const idx = data.findIndex(d => d[config.keyColumn] === formData[config.keyColumn]);
+                if (idx !== -1) {
+                    data.splice(idx, 1);
+                    data = [...data]; // Trigger update
+                }
+            } else if (action === 'update') {
+               const idx = data.findIndex(d => d[config.keyColumn] === formData[config.keyColumn]);
+               if (idx !== -1) {
+                   data[idx] = { ...data[idx], ...formData };
+                   data = [...data];
+               }
+            } else if (action === 'create') {
+                // For create, we might need to refetch or prepend. 
+                // Simple approach: prepend to data
+                data = [formData, ...data];
+            }
+            return true;
+        }
+        return result;
+    }
+
 
     // -- Columns --
     const columns = $derived(
@@ -381,6 +417,16 @@
         const targetItem = items.find(i => i.index === newRow);
         
         switch(e.key) {
+            case 'Enter':
+                if (config.isEditable && items.length > 0) {
+                   const row = uiRows[activeRowIndex];
+                   if (row) {
+                       editingRow = row.original;
+                       isEditDialogOpen = true;
+                   }
+                }
+                handled = true;
+                break;
             case 'ArrowUp':
                 if (items.length > 0) {
                      newRow = Math.max(0, newRow - 1);
@@ -520,7 +566,17 @@
         }
     }
 
+
     function handleRowDoubleClick(index: number) {
+        if (config.isEditable) {
+            const row = uiRows[index];
+            if (row) {
+                 editingRow = row.original;
+                 isEditDialogOpen = true;
+            }
+            return;
+        }
+
         if (onEdit) {
             const row = uiRows[index];
             if (row) onEdit(row.original, []); 
@@ -868,6 +924,15 @@
         onApply={updateSorting}
     />
     
+    {#if config.isEditable}
+        <RowEditForm
+            bind:open={isEditDialogOpen}
+            data={editingRow}
+            columns={config.columns}
+            onAction={handleRowEdit}
+        />
+    {/if}
+
     <!-- "Not Found" Notification -->
     {#if notFoundVisible}
         <div 

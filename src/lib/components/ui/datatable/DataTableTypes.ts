@@ -16,6 +16,7 @@ export interface DataTableConfig {
     maxVisibleRows?: number;
     isFilterable?: boolean; // Default false
     isFindable?: boolean; // Default false
+    isEditable?: boolean; // Default false
     columns: DataTableColumn[];
 }
 
@@ -43,6 +44,14 @@ export type DataEditCallback = (
     afterData: any[]
 ) => Promise<DataEditCallbackResult>;
 
+export type RowAction = 'update' | 'create' | 'delete';
+export type RowEditResult = boolean | { error: string };
+
+export type RowEditCallback = (
+    action: RowAction,
+    row: any
+) => Promise<RowEditResult>;
+
 // Selection Callback Types
 export interface SelectedCell {
     rowKey: any;
@@ -69,6 +78,7 @@ export interface DataTableProps {
     config: DataTableConfig;
     dataSource: DataSourceCallback;
     onEdit?: DataEditCallback;
+    onRowEdit?: RowEditCallback;
     onSelection?: SelectedCellsCallback;
     onFind?: FindCallback;
     class?: string;

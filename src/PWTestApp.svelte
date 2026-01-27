@@ -14,6 +14,7 @@
   let isReady = $state(false);
   let tableComponent: any = $state();
   let currentFilter = $state("");
+  let onRowEdit: any = $state(undefined);
   
   // Test config injection interface
   interface TestConfig {
@@ -62,6 +63,15 @@
         }
     }
 
+    if (testConfig?.config?.isEditable) {
+           onRowEdit = async (action: any, row: any) => {
+               if ((window as any).__onRowEdit) {
+                   return await (window as any).__onRowEdit(action, row);
+               }
+               return true;
+           };
+    }
+
     config = finalConfig;
     dataSource = (cols: string[], start: number, num: number, sort: any[]) => 
         ds.getRows(cols, start, num, sort, { global: currentFilter });
@@ -86,6 +96,7 @@
                 {config} 
                 {dataSource}
                 bind:globalFilter={currentFilter}
+                onRowEdit={onRowEdit}
                 onFind={async (term, direction, currentIndex) => {
                     // Search through test data across all columns
                     const lowerTerm = term.toLowerCase();

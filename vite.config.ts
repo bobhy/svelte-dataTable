@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => ({
     resolve: {
         alias: {
             $lib: resolve("./src/lib"),
+            "$app/environment": resolve("./src/lib/mocks/sveltekit.ts"),
+            "$app/stores": resolve("./src/lib/mocks/sveltekit.ts"),
+            "$app/navigation": resolve("./src/lib/mocks/sveltekit.ts"),
+            "$app/forms": resolve("./src/lib/mocks/sveltekit.ts"),
         },
     },
     build: {
@@ -22,5 +26,8 @@ export default defineConfig(({ mode }) => ({
     },
     css: {
         devSourcemap: mode === "development",
+    },
+    optimizeDeps: {
+        exclude: ["$app/environment", "$app/stores", "$app/navigation", "$app/forms", "sveltekit-superforms", "formsnap"],
     },
 }));
