@@ -3,8 +3,9 @@
     "compilerOptions": {
         "target": "ESNext",
         "useDefineForClassFields": true,
-        "module": "NodeNext",
-        "moduleResolution": "nodenext",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
         "resolveJsonModule": true,
         "baseUrl": ".",
         "allowJs": true,

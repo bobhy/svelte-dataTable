@@ -9,14 +9,14 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer, type VirtualItem } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes.js';
+	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes.ts';
 	import { untrack } from 'svelte';
-    import { cn } from '$lib/utils.js';
+    import { cn } from '$lib/utils.ts';
     import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
     import { get } from 'svelte/store';
     import SortOptions from './SortOptions.svelte';
     import RowEditForm from './RowEditForm.svelte';
-    import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.js';
+    import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.ts';
 
 	let { config, dataSource, onEdit, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 

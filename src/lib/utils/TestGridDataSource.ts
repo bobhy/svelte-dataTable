@@ -1,5 +1,5 @@
 
-import type { SortKey, DataTableColumn } from '$lib/components/ui/datatable/DataTableTypes.js';
+import type { SortKey, DataTableColumn } from '$lib/components/ui/datatable/DataTableTypes.ts';
 
 export class TestGridDataSource {
     rowCount: number;
