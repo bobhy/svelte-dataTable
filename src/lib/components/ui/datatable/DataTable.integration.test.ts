@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import DataTable from './DataTable.svelte';
-import type { DataTableConfig, DataSourceCallback, SortKey } from './DataTableTypes';
+import type { DataTableConfig, DataSourceCallback, SortKey } from './DataTableTypes.js';
 
 describe('DataTable Component - Navigation and Filtering Integration Tests', () => {
     let dataSourceMock: ReturnType<typeof vi.fn>;

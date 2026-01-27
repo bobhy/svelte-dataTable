@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import { TestGridDataSource } from './TestGridDataSource';
+import { TestGridDataSource } from './TestGridDataSource.js';
 
 describe('TestGridDataSource', () => {
     it('should generate correct number of columns', () => {
@@ -50,7 +50,7 @@ describe('TestGridDataSource', () => {
         // '4' (52) < 'C' (67).
         // So R14C0 < R1C0.
         // Correct.
-        expect(rows.find(r => r.col0 === 'R1C0')).toBeTruthy();
+        expect(rows.find((r: any) => r.col0 === 'R1C0')).toBeTruthy();
     });
 
     it('should handle sorting descending', async () => {
