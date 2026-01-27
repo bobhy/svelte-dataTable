@@ -68,6 +68,9 @@ temp/
 # temp storage for ai agents
 .agents_temp/
 
+# incremental build cache files
+.tsbuildinfo
+
 # Lock files (uncomment if you want to ignore them)
 # package-lock.json
 # yarn.lock

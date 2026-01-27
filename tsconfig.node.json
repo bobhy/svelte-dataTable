@@ -1,10 +1,15 @@
 {
     "compilerOptions": {
-        "composite": true,
         "module": "ESNext",
-        "moduleResolution": "bundler"
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true
     },
     "include": [
-        "vite.config.ts"
+        "vite.config.ts",
+        "src/lib/vite/sveltekit-mocks.ts"
     ]
 }

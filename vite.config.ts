@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
-import { getSveltekitMocksAlias, sveltekitOptimizeDepsExclude } from "./src/lib/vite/sveltekit-mocks.js";
+import { getSveltekitMocksAlias, sveltekitOptimizeDepsExclude } from "./src/lib/vite/sveltekit-mocks.ts";
 
 export default defineConfig(({ mode }) => ({
     plugins: [
