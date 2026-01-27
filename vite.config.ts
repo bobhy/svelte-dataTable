@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
+import { getSveltekitMocksAlias, sveltekitOptimizeDepsExclude } from "./src/lib/vite/sveltekit-mocks.js";
 
 export default defineConfig(({ mode }) => ({
     plugins: [
@@ -11,10 +12,7 @@ export default defineConfig(({ mode }) => ({
     resolve: {
         alias: {
             $lib: resolve("./src/lib"),
-            "$app/environment": resolve("./src/lib/mocks/sveltekit.ts"),
-            "$app/stores": resolve("./src/lib/mocks/sveltekit.ts"),
-            "$app/navigation": resolve("./src/lib/mocks/sveltekit.ts"),
-            "$app/forms": resolve("./src/lib/mocks/sveltekit.ts"),
+            ...getSveltekitMocksAlias(),
         },
     },
     build: {
@@ -36,6 +34,7 @@ export default defineConfig(({ mode }) => ({
         devSourcemap: mode === "development",
     },
     optimizeDeps: {
-        exclude: ["$app/environment", "$app/stores", "$app/navigation", "$app/forms", "sveltekit-superforms", "formsnap"],
+        exclude: sveltekitOptimizeDepsExclude,
     },
 }));
+
