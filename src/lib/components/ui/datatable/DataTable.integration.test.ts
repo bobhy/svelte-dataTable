@@ -43,7 +43,7 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
         Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 1000 });
 
         // Mock getBoundingClientRect for virtualizer measurements
-        HTMLElement.prototype.getBoundingClientRect = vi.fn(function () {
+        HTMLElement.prototype.getBoundingClientRect = vi.fn(function (this: HTMLElement) {
             return {
                 width: 1000,
                 height: this.offsetHeight || 40,
@@ -102,23 +102,24 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
 
         // Filtering is currently not implemented in the component (no UI input).
         it.skip('should handle filtering', async () => {
+            const user = (userEvent as any).setup();
             const { container } = render(DataTable, { config: defaultConfig, dataSource: dataSourceMock });
             await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
             const initialCalls = dataSourceMock.mock.calls.length;
             const filterInput = container.querySelector('input[placeholder="Filter..."]');
             expect(filterInput).toBeTruthy();
-            if (filterInput) await userEvent.type(filterInput, 'Item 1');
-            if (filterInput) await userEvent.type(filterInput, 'Item 1');
+            if (filterInput) await user.type(filterInput, 'Item 1');
             await waitFor(() => expect(dataSourceMock.mock.calls.length).toBeGreaterThan(initialCalls), { timeout: 2000 });
         });
 
         it('should handle find navigation', async () => {
+            const user = (userEvent as any).setup();
             const onFind = vi.fn().mockResolvedValue(1); // Mock returning index 1
             const { container } = render(DataTable, { config: defaultConfig, dataSource: dataSourceMock, onFind, findTerm: 'Item' });
 
             const nextBtn = container.querySelector('button[title="Find Next"]');
             expect(nextBtn).toBeTruthy();
-            if (nextBtn) await userEvent.click(nextBtn);
+            if (nextBtn) await user.click(nextBtn);
 
             expect(onFind).toHaveBeenCalledWith('Item', 'next', expect.any(Number));
         });

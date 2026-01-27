@@ -146,15 +146,15 @@
             get columnSizingInfo() { return columnSizingInfo; },
             get columnPinning() { return columnPinning; }
         },
-        onSortingChange: (updater) => {
+        onSortingChange: (updater: any) => {
             if (typeof updater === 'function') sorting = updater(sorting);
             else sorting = updater;
         },
-        onColumnSizingInfoChange: (updater) => {
+        onColumnSizingInfoChange: (updater: any) => {
             if (typeof updater === 'function') columnSizingInfo = updater(columnSizingInfo);
             else columnSizingInfo = updater;
         },
-        onColumnSizingChange: (updater) => {
+        onColumnSizingChange: (updater: any) => {
             let newVal;
             if (typeof updater === 'function') newVal = updater(columnSizing);
             else newVal = updater;
@@ -319,7 +319,7 @@
             // Heuristic 1: Fetch Ahead (2x needed)
             const fetchCount = neededCount * 2;
             
-            const cols = [config.keyColumn, ...config.columns.map(c => c.name)];
+            const cols = [config.keyColumn, ...config.columns.map((c: any) => c.name)];
             const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
             
             // Remove filters from call
@@ -470,9 +470,9 @@
                          const clientHeight = tContainer.clientHeight;
                          
                          if (itemBottom > scrollTop + clientHeight) {
-                              instance.scrollToIndex(newRow, { align: 'end' });
+                               instance.scrollToIndex(newRow, { align: 'end' });
                          } else if (itemTop < scrollTop) {
-                              instance.scrollToIndex(newRow, { align: 'start' });
+                               instance.scrollToIndex(newRow, { align: 'start' });
                          }
                      } else {
                          instance.scrollToIndex(newRow, { align: 'auto' });
@@ -613,7 +613,7 @@
         
         // Update active column if specified
         if (columnName) {
-            const colIndex = columns.findIndex(col => col.accessorKey === columnName);
+            const colIndex = columns.findIndex((col: any) => col.accessorKey === columnName);
             if (colIndex !== -1) {
                 activeColIndex = colIndex;
             }

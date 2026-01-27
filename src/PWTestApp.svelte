@@ -1,7 +1,7 @@
 <script lang="ts">
   import DataTable from '$lib/components/ui/datatable/DataTable.svelte';
-  import type { DataTableConfig } from '$lib/components/ui/datatable/DataTableTypes';
-  import { TestGridDataSource } from '$lib/utils/TestGridDataSource';
+  import type { DataTableConfig } from '$lib/components/ui/datatable/DataTableTypes.js';
+  import { TestGridDataSource } from '$lib/utils/TestGridDataSource.js';
   import { onMount } from 'svelte';
 
   let config: DataTableConfig = $state({
@@ -97,7 +97,7 @@
                 {dataSource}
                 bind:globalFilter={currentFilter}
                 onRowEdit={onRowEdit}
-                onFind={async (term, direction, currentIndex) => {
+                onFind={async (term: string, direction: 'next' | 'previous', currentIndex: number) => {
                     // Search through test data across all columns
                     const lowerTerm = term.toLowerCase();
                     const totalRows = (window as any).__TEST_CONFIG__?.rows ?? 50;

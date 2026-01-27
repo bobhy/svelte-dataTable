@@ -1,7 +1,7 @@
 <script lang="ts">
   import DataTable from '$lib/components/ui/datatable/DataTable.svelte';
-  import type { DataTableConfig } from '$lib/components/ui/datatable/DataTableTypes';
-  import { TestGridDataSource } from '$lib/utils/TestGridDataSource';
+  import type { DataTableConfig } from '$lib/components/ui/datatable/DataTableTypes.js';
+  import { TestGridDataSource } from '$lib/utils/TestGridDataSource.js';
   import { onMount } from 'svelte';
 
   let config: DataTableConfig = $state({

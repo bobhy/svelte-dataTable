@@ -1,6 +1,6 @@
 <script lang="ts">
     import DataTable from './lib/components/ui/datatable/DataTable.svelte';
-    import type { DataTableConfig, DataSourceCallback } from './lib/components/ui/datatable/DataTableTypes';
+    import type { DataTableConfig, DataSourceCallback } from './lib/components/ui/datatable/DataTableTypes.js';
 
     // Simple test data source
     const generateData = (count: number) => {
@@ -62,7 +62,7 @@
         return processed;
     };
 
-    const dataSource: DataSourceCallback = async (cols, startRow, numRows, sortKeys) => {
+    const dataSource: DataSourceCallback = async (cols: string[], startRow: number, numRows: number, sortKeys: any[]) => {
         // Capture current state
         currentSortKeys = sortKeys;
         currentFilters = { global: filterTerm };
