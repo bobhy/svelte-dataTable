@@ -71,7 +71,7 @@
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Content class="sm:max-w-[425px]">
+    <Dialog.Content class="sm:max-w-2xl">
         <Dialog.Header>
             <Dialog.Title>Edit Row</Dialog.Title>
             <Dialog.Description>
