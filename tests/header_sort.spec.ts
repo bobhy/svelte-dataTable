@@ -16,7 +16,7 @@ test('header should show sort indicators', async ({ page }) => {
     await expect(gridContainer).toBeVisible();
 
     // Open sort dialog from first header (ID)
-    const firstHeader = gridContainer.locator('button').first();
+    const firstHeader = gridContainer.getByRole('button', { name: 'ID' });
     await firstHeader.click();
 
     // Configure sort: ID Descending

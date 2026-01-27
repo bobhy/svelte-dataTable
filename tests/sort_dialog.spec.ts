@@ -20,7 +20,7 @@ test('sort dialog should populate column options and handle multi-sort', async (
     await expect(gridContainer).toBeVisible();
 
     // 2. Open Sort Dialog
-    const firstHeader = gridContainer.locator('button').first();
+    const firstHeader = gridContainer.getByRole('button', { name: 'ID' });
     await firstHeader.click();
 
     const dialog = page.getByRole('dialog');
