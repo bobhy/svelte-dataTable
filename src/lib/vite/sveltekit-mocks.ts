@@ -35,8 +35,9 @@ export function getSveltekitMocksAlias(): Record<string, string> {
 /**
  * Recommended optimizeDeps.exclude configuration for sveltekit-superforms.
  */
-"$app/environment",
+export const sveltekitOptimizeDepsExclude = [
+    "$app/environment",
     "$app/stores",
     "$app/navigation",
-    "$app/forms",
+    "$app/forms"
 ];
