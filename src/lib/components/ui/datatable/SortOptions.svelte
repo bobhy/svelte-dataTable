@@ -16,7 +16,7 @@
 
     let localSorting = $state<SortKey[]>([]);
 
-    const sortableCols = $derived(columns.filter(c => c.isSortable));
+    const sortableCols = $derived(columns.filter((c: DataTableColumn) => c.isSortable));
 
     $effect(() => {
         if (open) {

@@ -8,7 +8,7 @@
 		type Row,
 		type SortingState
 	} from '@tanstack/svelte-table';
-	import { createVirtualizer } from '@tanstack/svelte-virtual';
+	import { createVirtualizer, type VirtualItem } from '@tanstack/svelte-virtual';
 	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils';
@@ -194,7 +194,7 @@
     });
 
     // Reactive state derived from virtualizer store
-    let virtualItems = $state([]);
+    let virtualItems = $state<VirtualItem[]>([]);
     let totalSize = $state(0);
     
     $effect(() => {
