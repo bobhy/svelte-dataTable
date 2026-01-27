@@ -773,6 +773,8 @@
                                     </span>
                                 {/if}
                             </button>
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                             <div 
                                 class="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary touch-none select-none opacity-0 group-hover:opacity-100 transition-opacity"
                                 role="separator"
@@ -818,7 +820,9 @@
                     -->
                     <!-- svelte-ignore a11y_click_events_have_key_events -->
                     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                    <!-- allow row to take focus (programmatically, for accessibility), but keep the row out of natural tab order -->
                     <div
+                        tabindex="-1"
                         data-index={virtualRow.index} 
                         use:measureRow={virtualRow.index}
                         class={cn("flex border-b w-full min-w-max hover:bg-muted/50 transition-colors data-[state=selected]:bg-muted", 
