@@ -1,0 +1,36 @@
+Loading svelte-check in workspace: /home/bobhy/worktrees/dataTable
+Getting Svelte diagnostics...
+
+/home/bobhy/worktrees/dataTable/src/lib/components/ui/datatable/RowEditForm.svelte:39:25
+Error: Type instantiation is excessively deep and possibly infinite. (ts)
+    // svelte-ignore state_referenced_locally - Initial form data is captured once, synced via $effect
+    const initialData = defaults(data || {}, zod(schema));
+
+/home/bobhy/worktrees/dataTable/src/lib/components/ui/datatable/RowEditForm.svelte:39:46
+Error: Type instantiation is excessively deep and possibly infinite. (ts)
+    // svelte-ignore state_referenced_locally - Initial form data is captured once, synced via $effect
+    const initialData = defaults(data || {}, zod(schema));
+
+/home/bobhy/worktrees/dataTable/src/lib/components/ui/datatable/DataTable.svelte:188:31
+Error: Argument of type '{ data: any[]; columns: ColumnDef<any>[]; state: { sorting: SortingState; columnSizing: {}; columnSizingInfo: any; columnPinning: { left: never[]; right: never[]; }; columnVisibility: VisibilityState; ... 7 more ...; rowSelection: RowSelectionState; }; ... 80 more ...; renderFallbackValue?: any; }' is not assignable to parameter of type 'Updater<TableOptionsResolved<any>>'.
+  Type '{ data: any[]; columns: ColumnDef<any>[]; state: { sorting: SortingState; columnSizing: {}; columnSizingInfo: any; columnPinning: { left: never[]; right: never[]; }; columnVisibility: VisibilityState; ... 7 more ...; rowSelection: RowSelectionState; }; ... 80 more ...; renderFallbackValue?: any; }' is not assignable to type 'TableOptionsResolved<any>'.
+    Types of property 'onStateChange' are incompatible.
+      Type '((updater: Updater<TableState>) => void) | undefined' is not assignable to type '(updater: Updater<TableState>) => void'.
+        Type 'undefined' is not assignable to type '(updater: Updater<TableState>) => void'. (ts)
+        untrack(() => {
+             table.setOptions({
+                ...options,
+                data: snapshot,
+                columns: colState,
+                state: {
+                    ...table.getState(),
+                    sorting: sortState,
+                    columnSizing: sizeState,
+                    columnSizingInfo: columnSizingInfo, // Sync persistent state
+                    columnPinning: pinState
+                }
+            });
+            uiRows = table.getRowModel().rows;
+
+====================================
+svelte-check found 3 errors and 0 warnings in 2 files

@@ -4,6 +4,7 @@
     import { Input } from "$lib/components/ui/input/index.ts";
     import { Label } from "$lib/components/ui/label/index.ts";
     import * as Form from "$lib/components/ui/form/index.ts";
+    import * as AlertDialog from "$lib/components/ui/alert-dialog/index.ts";
     import { superForm, defaults } from "sveltekit-superforms";
     import { zod } from "sveltekit-superforms/adapters";
     import { z } from "zod";
@@ -54,10 +55,16 @@
         }
     });
 
+    let showConfirmDelete = $state(false);
+
     async function handleAction(action: RowAction) {
-        if (action === 'delete') {
-            if (!confirm("Are you sure you want to delete this row?")) return;
+        if (action === 'delete' && !showConfirmDelete) {
+            showConfirmDelete = true;
+            return;
         }
+
+        // Close confirmation if it was open
+        showConfirmDelete = false;
 
         const result = await onAction(action, $form);
         
@@ -124,3 +131,20 @@
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>
+
+<AlertDialog.Root bind:open={showConfirmDelete}>
+    <AlertDialog.Content>
+        <AlertDialog.Header>
+            <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+            <AlertDialog.Description>
+                This action cannot be undone. This will permanently delete the row.
+            </AlertDialog.Description>
+        </AlertDialog.Header>
+        <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Action onclick={() => handleAction('delete')}>
+                Delete
+            </AlertDialog.Action>
+        </AlertDialog.Footer>
+    </AlertDialog.Content>
+</AlertDialog.Root>
