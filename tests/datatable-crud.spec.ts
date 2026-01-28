@@ -73,21 +73,47 @@ test.describe('DataTable CRUD', () => {
             return true;
         });
 
-        // Auto-accept confirmation dialogs
-        page.on('dialog', dialog => dialog.accept());
-
         await page.locator('[role="row"]').first().dblclick();
 
+        // Click delete in main dialog
         await page.getByRole('button', { name: 'Delete' }).click();
 
+        // Should see Alert Dialog
+        await expect(page.getByRole('alertdialog')).toBeVisible();
+        await expect(page.getByText('Are you absolutely sure?')).toBeVisible();
+
+        // Click delete in AlertDialog (there's only one button with "Delete" text in the alert dialog)
+        await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+
+        // Both dialogs should close
+        await expect(page.getByRole('alertdialog')).not.toBeVisible();
         await expect(page.locator('[role="dialog"]')).not.toBeVisible();
 
         expect(callParams).not.toBeNull();
         expect(callParams.action).toBe('delete');
+    });
 
-        // Verify row is removed (or count decreases)
-        // With 20 rows initially
-        // Ideally we check key column content
+    test('should show error message on failed delete', async ({ page }) => {
+        await page.exposeFunction('__onRowEdit', (action: string, row: any) => {
+            return { error: 'Database error: Record not found' };
+        });
+
+        await page.locator('[role="row"]').first().dblclick();
+
+        // Click delete in main dialog
+        await page.getByRole('button', { name: 'Delete' }).click();
+
+        // Click delete in AlertDialog
+        await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+
+        // AlertDialog should close
+        await expect(page.getByRole('alertdialog')).not.toBeVisible();
+
+        // Main dialog should still be visible
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+
+        // Error message should be visible
+        await expect(page.getByText('Database error: Record not found')).toBeVisible();
     });
 
     test('should trigger create action (Save as New)', async ({ page }) => {

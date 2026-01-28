@@ -1,6 +1,6 @@
 <script lang="ts">
     import DataTable from './lib/components/ui/datatable/DataTable.svelte';
-    import type { DataTableConfig, DataSourceCallback } from './lib/components/ui/datatable/DataTableTypes.js';
+    import type { DataTableConfig, DataSourceCallback } from './lib/components/ui/datatable/DataTableTypes.ts';
 
     // Simple test data source
     const generateData = (count: number) => {
