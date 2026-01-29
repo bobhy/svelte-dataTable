@@ -9,6 +9,7 @@ vite.config.ts.timestamp-*
 wailsjs/
 test-results/
 playwright-report/
+docs/
 
 # Logs and temp files
 npm-debug.log*

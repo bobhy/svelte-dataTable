@@ -9,7 +9,7 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer, type VirtualItem } from '@tanstack/svelte-virtual';
-	import type { DataTableProps, DataTableConfig, DataTableColumn, SortKey, ActiveCellInfo, FindDirection, FindResult } from './DataTableTypes.ts';
+	import { type DataTableProps, type DataTableConfig, type DataTableColumn, type SortKey, type ActiveCellInfo, type FindDirection, type FindResult, DEFAULT_DATA_TABLE_COLUMN, DEFAULT_DATA_TABLE_CONFIG } from './DataTableTypes.ts';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils.ts';
     import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -19,6 +19,10 @@
     import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.ts';
 
 	let { config, dataSource, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
+
+    // -- Centralized Defaults --
+    const actualConfig = $derived({ ...DEFAULT_DATA_TABLE_CONFIG, ...config });
+    const actualColumns = $derived(actualConfig.columns.map(col => ({ ...DEFAULT_DATA_TABLE_COLUMN, ...col })));
 
     // -- State --
 	let data = $state<any[]>([]);
@@ -49,7 +53,7 @@
                 isLoading = false;
                 const instance = get(virtualizerStore);
                 if (instance) instance.setOptions({ count: 0 });
-                performFetch(0, 20);
+                performFetch(0, actualConfig.maxVisibleRows);
             });
         }
     }); 
@@ -85,16 +89,16 @@
         if (result === true) {
             // Update local cache
             if (action === 'delete') {
-                const idx = data.findIndex(d => d[config.keyColumn] === formData[config.keyColumn]);
+                const idx = data.findIndex(d => d[actualConfig.keyColumn] === formData[actualConfig.keyColumn]);
                 if (idx !== -1) {
                     data.splice(idx, 1);
                     data = [...data]; // Trigger update
                 }
             } else if (action === 'update') {
-               const idx = data.findIndex(d => d[config.keyColumn] === formData[config.keyColumn]);
+               const idx = data.findIndex(d => d[actualConfig.keyColumn] === formData[actualConfig.keyColumn]);
                if (idx !== -1) {
-                   data[idx] = { ...data[idx], ...formData };
-                   data = [...data];
+                    data[idx] = { ...data[idx], ...formData };
+                    data = [...data];
                }
             } else if (action === 'create') {
                 // For create, we might need to refetch or prepend. 
@@ -109,12 +113,12 @@
 
     // -- Columns --
     const columns = $derived(
-        config.columns.map((col: DataTableColumn) => ({
+        actualColumns.map((col: DataTableColumn) => ({
             accessorKey: col.name,
             header: col.title || col.name,
-            enableSorting: col.isSortable ?? false,
+            enableSorting: col.isSortable,
             enableResizing: true, 
-            size: col.maxWidth ?? 150, 
+            size: col.maxWidth, 
             meta: { config: col },
             cell: (info: any) => {
                 const val = info.getValue();
@@ -917,17 +921,17 @@
     
     <SortOptions 
         bind:open={showSortDialog} 
-        columns={config.columns}
+        columns={actualColumns}
         sorting={sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }))} 
         onApply={updateSorting}
     />
     
-    {#if config.isEditable}
+    {#if actualConfig.isEditable}
         <RowEditForm
             bind:open={isEditDialogOpen}
             data={editingRow}
-            columns={config.columns}
-            config={config}
+            columns={actualColumns}
+            config={actualConfig}
             onAction={handleRowEdit}
         />
     {/if}

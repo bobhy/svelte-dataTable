@@ -1,0 +1,21 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": [
+        "src/lib/components/ui/datatable/DataTableTypes.ts"
+    ],
+    "out": "docs",
+    "name": "DataTable Component Documentation",
+    "skipErrorChecking": true,
+    "plugin": [
+        "./scripts/typedoc-plugin-default-link.js"
+    ],
+    "inlineTags": [
+        "@link",
+        "@linkcode",
+        "@linkplain",
+        "@defaultLink"
+    ],
+    "includeVersion": true,
+    "excludeExternals": true,
+    "githubPages": false
+}

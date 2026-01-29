@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import DataTable from './DataTable.svelte';
-import type { DataTableConfig, DataSourceCallback } from './DataTableTypes.ts';
+import { type DataTableConfig, type DataSourceCallback, DEFAULT_DATA_TABLE_CONFIG } from './DataTableTypes.ts';
 
 describe('DataTable - Validation and Enum Integration Tests', () => {
     let dataSourceMock: ReturnType<typeof vi.fn>;
@@ -67,6 +67,7 @@ describe('DataTable - Validation and Enum Integration Tests', () => {
         dataSourceMock = vi.fn(async () => testData);
 
         config = {
+            ...DEFAULT_DATA_TABLE_CONFIG,
             name: 'validation-test',
             keyColumn: 'id',
             isEditable: true,
