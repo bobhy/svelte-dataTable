@@ -1,10 +1,17 @@
-import { Converter } from 'typedoc';
-
 /**
- * TypeDoc Plugin: Default Link (Inline Version)
+ * @file
+ * @description
+ * This plugin processes @defaultLink tags in TypeDoc comments.
+ * These tags expand to the string `Default: <actualValue>.
+ * By uncommenting a few lines in the body, they could be: `Default: <actualValue> (<linkToDeclaration>)`.
  * 
- * Resolves {@defaultLink Constant.prop} and injects the actual value.
+ * See {@link https://github.com/bobhy/dataTable/blob/main/src/lib/components/ui/datatable/FooTypes.ts} for sample usage.
+ * 
+ * @module typedoc-plugin-default-link
  */
+import { Converter } from 'typedoc';
+import * as fs from 'fs';
+
 export function load(app) {
     app.converter.on(Converter.EVENT_RESOLVE, (context, reflection) => {
         const comment = reflection.comment;
@@ -30,7 +37,6 @@ export function load(app) {
             let target = current.children?.find(c => c.name === part);
 
             // 2. If not found, check if current node has a type declaration with children
-            // (This handles object literals: Variable -> type -> declaration -> children)
             if (!target && current.type && current.type.declaration && current.type.declaration.children) {
                 target = current.type.declaration.children.find(c => c.name === part);
             }
@@ -43,10 +49,45 @@ export function load(app) {
                     if (target) break;
                 }
             }
-
             current = target;
         }
         return current;
+    }
+
+    function extractValueFromSource(target) {
+        if (!target.sources || target.sources.length === 0) return null;
+
+        try {
+            const source = target.sources[0];
+            if (!fs.existsSync(source.fullFileName)) return null;
+
+            const content = fs.readFileSync(source.fullFileName, 'utf-8');
+            const lines = content.split(/\r?\n/);
+
+            // Validate line coverage
+            if (source.line < 1 || source.line > lines.length) return null;
+
+            // line is 1-based
+            let currentLineIdx = source.line - 1;
+            const lineText = lines[currentLineIdx];
+
+            // Regex to find "key: value" or "key = value"
+            // We want to capture the value part.
+            const propRegex = new RegExp(`\\b${target.name}\\s*[:=]\\s*(.*)`);
+            const match = lineText.match(propRegex);
+
+            if (match) {
+                let value = match[1].trim();
+                // Strip trailing comma if present
+                if (value.endsWith(',')) {
+                    value = value.substring(0, value.length - 1).trim();
+                }
+                return value;
+            }
+        } catch (e) {
+            console.warn(`[defaultLink] Error reading source for ${target.name}:`, e);
+        }
+        return null;
     }
 
     function processParts(context, parts, reflection) {
@@ -59,32 +100,42 @@ export function load(app) {
 
                 if (target) {
                     let value = target.defaultValue;
+                    // console.log(`[DEBUG] Inspecting ${linkPath}: defaultValue="${value}"`);
 
-                    if (!value && target.type) {
-                        if (target.type.type === 'literal') {
-                            value = String(target.type.value);
+                    // Work a bit to get accurate default value string for arror functions
+                    // Force extraction if value is missing, "...", or looks like a TypeDoc Type string
+                    const needsExtraction =
+                        !value ||
+                        value === '...' ||
+                        value.includes('=>'); // often a type signature in TypeDoc, not code
+
+                    if (needsExtraction && target.sources) {
+                        //console.log(`[DEBUG] Attempting source extraction for ${linkPath}`);
+                        const extracted = extractValueFromSource(target);
+                        if (extracted) {
+                            value = extracted;
+                            //console.log(`[DEBUG] Extracted: ${value}`);
+                        } else {
+                            console.warn(`[WARN] Extraction FAILED for ${linkPath}. target.sources: ${JSON.stringify(target.sources)}`);
                         }
+                    }
+
+                    if (!value && target.type && target.type.type === 'literal') {
+                        value = String(target.type.value);
                     }
 
                     if (value) {
                         value = value.trim();
-                        //if (value.includes('=>')) {
-                        //    const match = value.match(/=>\s*(.*)/);
-                        //    if (match) value = match[1].trim();
-                        //}
-                        //if ((value.startsWith("'") && value.endsWith("'")) ||
-                        //    (value.startsWith('"') && value.endsWith('"'))) {
-                        //    value = value.slice(1, -1);
-                        //}
 
-                        newParts.push({ kind: 'text', text: `Default: \`${value}\` (` });
-                        newParts.push({
-                            kind: 'inline-tag',
-                            tag: '@link',
-                            text: linkPath,
-                            target: target
-                        });
-                        newParts.push({ kind: 'text', text: ')' });
+                        newParts.push({ kind: 'text', text: `Default: \`${value}\`` });
+                        //newParts.push( {kind: 'text', text: ' ('})
+                        //newParts.push({
+                        //    kind: 'inline-tag',
+                        //    tag: '@link',
+                        //    text: linkPath,
+                        //    target: target
+                        //});
+                        //newParts.push({ kind: 'text', text: ')' });
                         continue;
                     }
                 }

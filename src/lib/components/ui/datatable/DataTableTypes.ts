@@ -2,17 +2,17 @@
  * Default values for a {@link DataTableColumn}
  */
 export const DEFAULT_DATA_TABLE_COLUMN = {
-    /** Whether the column is sortable. Default: `false` */
+    /// Whether the column is sortable.
     isSortable: false,
-    /** Whether the column is wrappable. Default: `'none'` */
+    /// Whether the column is wrappable.
     wrappable: 'none',
-    /** If wrapping a column, the maximum number of lines the row can use. Default: `1` */
+    /// If wrapping a column, the maximum number of lines the row can use.
     maxLines: 2,
-    /** The justification of the column. Default: `'left'` */
+    /// The justification of the column.
     justify: 'left',
-    /** The maximum width of the column in characters. Default: `20` */
+    /// The maximum width of the column in characters.
     maxWidth: 20,
-    /** Convert/format column value from data source to table. Default: `String(value ?? '')` */
+    /// Convert/format column value from data source to table.
     formatter: (value: any) => String(value ?? '')
 } as const;
 
@@ -20,7 +20,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
  * DataTable Column Definition
  * 
  * @property {string} name - Column name in data source (key).
- * @property {string} [title] - Column title (display name). Default is name in title case.
+ * @property {string} [title] - Column title (display name).<br>Default is name in title case.
  * @property {boolean} [isSortable] - Whether the column is sortable. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.isSortable}
  * @property {'none' | 'word' | 'hard'} [wrappable] - Whether the column is wrappable. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.wrappable}
  * @property {number} [maxLines] - If wrapping a column, the maximum number of lines the row can use. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.maxLines}
@@ -56,13 +56,13 @@ export interface DataTableColumn {
  * Default values for a {@link DataTableConfig}
  */
 export const DEFAULT_DATA_TABLE_CONFIG = {
-    /** The maximum number of visible rows. Default: `20` */
+    /// The maximum number of visible rows.
     maxVisibleRows: 20,
-    /** Whether the config is filterable. Default: `false` */
+    /// Whether the config is filterable.
     isFilterable: false,
-    /** Whether the config is findable. Default: `false` */
+    /// Whether the config is findable.
     isFindable: false,
-    /** Whether the config is editable. Default: `false` */
+    /// Whether the config is editable.
     isEditable: false
 } as const;
 
