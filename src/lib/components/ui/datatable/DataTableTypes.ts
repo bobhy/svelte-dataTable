@@ -2,17 +2,11 @@
  * Default values for a {@link DataTableColumn}
  */
 export const DEFAULT_DATA_TABLE_COLUMN = {
-    /** Whether the column is sortable. Default: `false` */
     isSortable: false,
-    /** Whether the column is wrappable. Default: `'none'` */
     wrappable: 'none',
-    /** If wrapping a column, the maximum number of lines the row can use. Default: `1` */
     maxLines: 2,
-    /** The justification of the column. Default: `'left'` */
     justify: 'left',
-    /** The maximum width of the column in characters. Default: `20` */
     maxWidth: 20,
-    /** Convert/format column value from data source to table. Default: `String(value ?? '')` */
     formatter: (value: any) => String(value ?? '')
 } as const;
 
@@ -20,7 +14,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
  * DataTable Column Definition
  * 
  * @property {string} name - Column name in data source (key).
- * @property {string} [title] - Column title (display name). Default is name in title case.
+ * @property {string} [title] - Column title (display name).<br>Default is name in title case.
  * @property {boolean} [isSortable] - Whether the column is sortable. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.isSortable}
  * @property {'none' | 'word' | 'hard'} [wrappable] - Whether the column is wrappable. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.wrappable}
  * @property {number} [maxLines] - If wrapping a column, the maximum number of lines the row can use. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.maxLines}
@@ -56,13 +50,9 @@ export interface DataTableColumn {
  * Default values for a {@link DataTableConfig}
  */
 export const DEFAULT_DATA_TABLE_CONFIG = {
-    /** The maximum number of visible rows. Default: `20` */
     maxVisibleRows: 20,
-    /** Whether the config is filterable. Default: `false` */
     isFilterable: false,
-    /** Whether the config is findable. Default: `false` */
     isFindable: false,
-    /** Whether the config is editable. Default: `false` */
     isEditable: false
 } as const;
 
@@ -102,7 +92,7 @@ export interface DataTableConfig {
 }
 
 /**
- * DataSourceCallback
+ * DataTable callback to fetch data
  * 
  * @param columnKeys - The column keys.
  * @param startRow - The start row.
@@ -118,7 +108,7 @@ export type DataSourceCallback = (
 ) => Promise<any[]>; // Returns array of row objects
 
 /**
- * SortKey
+ * Sort order for a column
  * 
  * @property {string} key - The key of the sort.
  * @property {'asc' | 'desc'} direction - The direction of the sort.
@@ -129,7 +119,7 @@ export interface SortKey {
 }
 
 /**
- * RowEditCallback
+ * Callback to update data source when user edits data
  * 
  * @param action - The action to perform.
  * @param row - The row to edit.
@@ -141,7 +131,7 @@ export type RowEditCallback = (
 ) => Promise<RowEditResult>;
 
 /**
- * RowAction
+ * Kind of data source update to perform
  * 
  * @property {'update' | 'create' | 'delete'} action - The action to perform.
  */
