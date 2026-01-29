@@ -7,7 +7,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
     /** Whether the column is wrappable. Default: `'none'` */
     wrappable: 'none',
     /** If wrapping a column, the maximum number of lines the row can use. Default: `1` */
-    maxLines: 1,
+    maxLines: 2,
     /** The justification of the column. Default: `'left'` */
     justify: 'left',
     /** The maximum width of the column in characters. Default: `20` */

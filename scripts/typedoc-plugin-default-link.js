@@ -68,14 +68,14 @@ export function load(app) {
 
                     if (value) {
                         value = value.trim();
-                        if (value.includes('=>')) {
-                            const match = value.match(/=>\s*(.*)/);
-                            if (match) value = match[1].trim();
-                        }
-                        if ((value.startsWith("'") && value.endsWith("'")) ||
-                            (value.startsWith('"') && value.endsWith('"'))) {
-                            value = value.slice(1, -1);
-                        }
+                        //if (value.includes('=>')) {
+                        //    const match = value.match(/=>\s*(.*)/);
+                        //    if (match) value = match[1].trim();
+                        //}
+                        //if ((value.startsWith("'") && value.endsWith("'")) ||
+                        //    (value.startsWith('"') && value.endsWith('"'))) {
+                        //    value = value.slice(1, -1);
+                        //}
 
                         newParts.push({ kind: 'text', text: `Default: \`${value}\` (` });
                         newParts.push({
