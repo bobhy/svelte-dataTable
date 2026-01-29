@@ -3,68 +3,115 @@
     import { Button } from "$lib/components/ui/button/index.ts";
     import { Input } from "$lib/components/ui/input/index.ts";
     import { Label } from "$lib/components/ui/label/index.ts";
-    import * as Form from "$lib/components/ui/form/index.ts";
     import * as AlertDialog from "$lib/components/ui/alert-dialog/index.ts";
     import { superForm, defaults } from "sveltekit-superforms";
     import { zod } from "sveltekit-superforms/adapters";
     import { z } from "zod";
-    import type { DataTableColumn, RowEditCallback, RowAction } from "./DataTableTypes.ts";
-    import { toast } from "svelte-sonner";
+    import type { DataTableColumn, DataTableConfig, RowEditCallback, RowAction } from "./DataTableTypes.ts";
 
     let { 
         open = $bindable(false), 
         data, 
         columns,
+        config,
         onAction 
     }: { 
         open: boolean; 
         data: any; 
         columns: DataTableColumn[];
+        config: DataTableConfig;
         onAction: RowEditCallback;
     } = $props();
 
     // Dynamically build schema based on columns
-    // We assume all fields are strings for now, can be enhanced with type metadata in columns later
     const schemaShape: Record<string, z.ZodTypeAny> = {};
-    // svelte-ignore state_referenced_locally - Schema is built once at component creation, intentionally non-reactive
+    // svelte-ignore state_referenced_locally
     columns.forEach(col => {
         schemaShape[col.name] = z.string().optional(); 
-        // TODO: Infer types from value or config if available
     });
     const schema = z.object(schemaShape);
 
-    // Initialize form
-    // In SPA mode, we use 'defaults' to create initial form data structure
-    // svelte-ignore state_referenced_locally - Initial form data is captured once, synced via $effect
-    const initialData = defaults(data || {}, zod(schema));
+    // svelte-ignore state_referenced_locally
+    // @ts-ignore - Bypassing "Type instantiation is excessively deep" errors with dynamic Zod schemas
+    const initialData: any = defaults(data || {}, zod(schema) as any);
     
-    const { form, errors, enhance, message, delayed } = superForm(initialData, {
+    // We'll use our own validation state for field-level errors as required by spec
+    let fieldErrors = $state<Record<string, string[]>>({});
+    let formErrors = $state<string[]>([]);
+
+    const { form, enhance, message, delayed } = superForm(initialData as any, {
         SPA: true,
-        validators: zod(schema),
-        onUpdate: async ({ form: f }) => {
-            if (f.valid) {
-                 // Handled via buttons
-            }
-        }
+        validators: zod(schema) as any
     });
 
     // Sync data when opening
     $effect(() => {
         if (open && data) {
             $form = { ...data };
+            fieldErrors = {};
+            formErrors = [];
+            $message = "";
         }
     });
 
     let showConfirmDelete = $state(false);
 
-    async function handleAction(action: RowAction) {
-        if (action === 'delete' && !showConfirmDelete) {
-            showConfirmDelete = true;
-            return;
+    function validateField(col: DataTableColumn) {
+        if (col.validator) {
+            const errors = col.validator($form[col.name]);
+            if (errors.length > 0) {
+                fieldErrors[col.name] = errors;
+            } else {
+                delete fieldErrors[col.name];
+            }
+        } else if (col.enumValues) {
+            const values = col.enumValues();
+            if ($form[col.name] && !values.includes($form[col.name] as any)) {
+                fieldErrors[col.name] = ["Value must be one of the allowed options"];
+            } else {
+                delete fieldErrors[col.name];
+            }
         }
+        
+        // Clear form error when all field errors are cleared
+        if (Object.keys(fieldErrors).length === 0) {
+            formErrors = [];
+        }
+    }
 
-        // Close confirmation if it was open
-        showConfirmDelete = false;
+    function handleInput(colName: string) {
+        // Clear field-level error as soon as user enters new data
+        if (fieldErrors[colName]) {
+            delete fieldErrors[colName];
+        }
+        if (Object.keys(fieldErrors).length === 0) {
+            formErrors = [];
+        }
+    }
+
+    async function handleAction(action: RowAction) {
+        if (action === 'delete') {
+            if (!showConfirmDelete) {
+                showConfirmDelete = true;
+                return;
+            }
+            showConfirmDelete = false;
+        } else {
+            // Validate all fields
+            columns.forEach(col => validateField(col));
+
+            // Row (form) level validation
+            if (config.rowValidator) {
+                const errors = config.rowValidator($form);
+                if (errors.length > 0) {
+                    formErrors = errors;
+                }
+            }
+
+            if (Object.keys(fieldErrors).length > 0 || formErrors.length > 0) {
+                return;
+            }
+        }
 
         const result = await onAction(action, $form);
         
@@ -75,10 +122,12 @@
         }
     }
 
+    const hasErrors = $derived(Object.keys(fieldErrors).length > 0 || formErrors.length > 0);
+
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Content class="sm:max-w-2xl">
+    <Dialog.Content class="sm:max-w-2xl flex flex-col max-h-[90vh]">
         <Dialog.Header>
             <Dialog.Title>Edit Row</Dialog.Title>
             <Dialog.Description>
@@ -86,34 +135,65 @@
             </Dialog.Description>
         </Dialog.Header>
 
-        <!-- Display Form Level Error -->
+        <!-- Display Messages (Toast / Form Messages) -->
         {#if $message}
-            <div class="text-destructive text-sm font-medium p-2 bg-destructive/10 rounded">
+            <div class="text-destructive text-sm font-medium p-2 bg-destructive/10 rounded mb-2">
                 {$message}
             </div>
         {/if}
 
-        <div class="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
+        <div class="grid gap-4 py-4 overflow-y-auto px-1 flex-1">
             {#each columns as col}
-                <div class="grid grid-cols-4 items-center gap-4">
-                    <Label for={col.name} class="text-right">
+                <div class="grid grid-cols-4 items-start gap-4">
+                    <Label for={col.name} class="text-right pt-2.5">
                         {col.title || col.name}
                     </Label>
-                    <div class="col-span-3">
-                         <Input 
-                            id={col.name} 
-                            bind:value={$form[col.name]} 
-                            placeholder={col.title || col.name}
-                        />
-                         {#if $errors[col.name]}
-                            <span class="text-xs text-destructive">{$errors[col.name]}</span>
+                    <div class="col-span-3 flex flex-col gap-1">
+                        {#if col.enumValues}
+                            <select 
+                                id={col.name}
+                                bind:value={$form[col.name]}
+                                onblur={() => validateField(col)}
+                                oninput={() => handleInput(col.name)}
+                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="">Select option...</option>
+                                {#each col.enumValues() as val}
+                                    <option value={val}>{val}</option>
+                                {/each}
+                            </select>
+                        {:else}
+                            <Input 
+                                id={col.name} 
+                                bind:value={$form[col.name]} 
+                                placeholder={col.title || col.name}
+                                onblur={() => validateField(col)}
+                                oninput={() => handleInput(col.name)}
+                            />
+                        {/if}
+                        
+                        {#if fieldErrors[col.name]}
+                            {#each fieldErrors[col.name] as error}
+                                <span class="text-xs text-destructive font-medium leading-none">{error}</span>
+                            {/each}
                         {/if}
                     </div>
                 </div>
             {/each}
         </div>
 
-        <Dialog.Footer class="flex-col sm:flex-row gap-2">
+        <!-- Row Level Errors -->
+        {#if formErrors.length > 0}
+            <div class="p-3 bg-destructive/5 border border-destructive/20 rounded-md mb-4 bg-red-50">
+                <ul class="list-disc list-inside space-y-1">
+                    {#each formErrors as error}
+                        <li class="text-xs text-destructive font-medium">{error}</li>
+                    {/each}
+                </ul>
+            </div>
+        {/if}
+
+        <Dialog.Footer class="flex-col sm:flex-row gap-2 pt-4 border-t">
             <div class="flex-1 flex justify-start">
                  <Button variant="destructive" onclick={() => handleAction('delete')} disabled={$delayed}>
                     Delete
@@ -121,10 +201,10 @@
             </div>
             <div class="flex gap-2 justify-end">
                 <Button variant="outline" onclick={() => open = false}>Cancel</Button>
-                <Button variant="secondary" onclick={() => handleAction('create')} disabled={$delayed}>
+                <Button variant="secondary" onclick={() => handleAction('create')} disabled={$delayed || hasErrors}>
                     Save as New
                 </Button>
-                <Button onclick={() => handleAction('update')} disabled={$delayed}>
+                <Button onclick={() => handleAction('update')} disabled={$delayed || hasErrors}>
                     Save Changes
                 </Button>
             </div>

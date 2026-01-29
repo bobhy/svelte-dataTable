@@ -7,6 +7,8 @@ export interface DataTableColumn {
     justify?: 'left' | 'center' | 'right'; // default 'left'
     maxWidth?: number; // characters
     formatter?: (value: any) => string;
+    validator?: (value: any) => string[]; // Returns error messages
+    enumValues?: () => string[]; // If present, it's a select field
 }
 
 export interface DataTableConfig {
@@ -18,6 +20,7 @@ export interface DataTableConfig {
     isFindable?: boolean; // Default false
     isEditable?: boolean; // Default false
     columns: DataTableColumn[];
+    rowValidator?: (row: any) => string[]; // Returns error messages
 }
 
 // Data Source Callback Types
@@ -32,17 +35,6 @@ export type DataSourceCallback = (
     numRows: number,
     sortKeys: SortKey[]
 ) => Promise<any[]>; // Returns array of row objects
-
-// Edit Callback Types
-export interface DataEditCallbackResult {
-    validationFailures: { columnKey: string; message: string }[];
-    dbStatus: string | null;
-}
-
-export type DataEditCallback = (
-    beforeData: any[],
-    afterData: any[]
-) => Promise<DataEditCallbackResult>;
 
 export type RowAction = 'update' | 'create' | 'delete';
 export type RowEditResult = boolean | { error: string };
@@ -77,7 +69,6 @@ export type FindCallback = (
 export interface DataTableProps {
     config: DataTableConfig;
     dataSource: DataSourceCallback;
-    onEdit?: DataEditCallback;
     onRowEdit?: RowEditCallback;
     onSelection?: SelectedCellsCallback;
     onFind?: FindCallback;

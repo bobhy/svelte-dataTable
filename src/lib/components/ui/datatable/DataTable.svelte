@@ -18,7 +18,7 @@
     import RowEditForm from './RowEditForm.svelte';
     import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.ts';
 
-	let { config, dataSource, onEdit, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
+	let { config, dataSource, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
     // -- State --
 	let data = $state<any[]>([]);
@@ -187,6 +187,7 @@
         untrack(() => {
              table.setOptions({
                 ...options,
+                onStateChange: () => {}, // Provide default to satisfy strict internal type
                 data: snapshot,
                 columns: colState,
                 state: {
@@ -196,7 +197,7 @@
                     columnSizingInfo: columnSizingInfo, // Sync persistent state
                     columnPinning: pinState
                 }
-            });
+            } as any);
             uiRows = table.getRowModel().rows;
             headerGroups = table.getHeaderGroups();
         });
@@ -571,18 +572,12 @@
 
 
     function handleRowDoubleClick(index: number) {
-        if (config.isEditable) {
+        if (onRowEdit && config.isEditable) {
             const row = uiRows[index];
             if (row) {
                  editingRow = row.original;
                  isEditDialogOpen = true;
             }
-            return;
-        }
-
-        if (onEdit) {
-            const row = uiRows[index];
-            if (row) onEdit(row.original, []); 
         }
     }
 
@@ -932,6 +927,7 @@
             bind:open={isEditDialogOpen}
             data={editingRow}
             columns={config.columns}
+            config={config}
             onAction={handleRowEdit}
         />
     {/if}
