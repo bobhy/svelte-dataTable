@@ -46,9 +46,9 @@ test('filter should support pagination', async ({ page }) => {
     // Wait for fetch
     await page.waitForTimeout(2000);
 
-    // 6. Verify more rows are loaded
-    const userRows = await page.locator('[role="row"]').count();
-    console.log("Rows after scroll:", userRows);
+    // 6. Verify last row is loaded and visible
+    await expect(page.getByText('R99C0')).toBeVisible();
 
-    expect(userRows).toBeGreaterThan(initialRows);
+    // And first row should be virtualized out (not visible)
+    await expect(page.getByText('R0C0')).not.toBeVisible();
 });

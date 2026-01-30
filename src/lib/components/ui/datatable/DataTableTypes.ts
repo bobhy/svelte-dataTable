@@ -6,7 +6,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
     wrappable: 'none',
     maxLines: 2,
     justify: 'left',
-    maxWidth: 20,
+    maxWidth: 150,
     formatter: (value: any) => String(value ?? '')
 } as const;
 

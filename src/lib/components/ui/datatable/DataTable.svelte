@@ -43,27 +43,43 @@
     let lastFilter = "";
     let lastSortJson = JSON.stringify([]);
     
+    let fetchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
     $effect(() => {
         const f = globalFilter;
         const s = sorting;
         const sJson = JSON.stringify(s);
         
         if (f !== lastFilter || sJson !== lastSortJson) {
-            lastFilter = f;
-            lastSortJson = sJson;
+            const isFilterChange = f !== lastFilter;
             
-            // Reset and fetch
-            untrack(() => {
-                rawCache.clear();
-                matchedIndices = [];
-                backendOffset = 0;
-                backendHasMore = true;
-                hasMore = true;
-                isLoading = false;
-                const instance = get(virtualizerStore);
-                if (instance) instance.setOptions({ count: 0 });
-                performFetch(0, actualConfig.maxVisibleRows);
-            });
+            // Logic to execute the refresh
+            const doRefresh = () => {
+                lastFilter = f;
+                lastSortJson = sJson;
+                
+                untrack(() => {
+                    rawCache.clear();
+                    matchedIndices = [];
+                    backendOffset = 0;
+                    backendHasMore = true;
+                    hasMore = true;
+                    isLoading = false;
+                    const instance = get(virtualizerStore);
+                    if (instance) instance.setOptions({ count: 0 });
+                    performFetch(0, actualConfig.maxVisibleRows);
+                });
+            };
+
+            if (isFilterChange) {
+                // Debounce filter changes
+                clearTimeout(fetchDebounceTimer);
+                fetchDebounceTimer = setTimeout(doRefresh, 300);
+            } else {
+                // Immediate update for sort changes (and clear pending filter debounce if any)
+                clearTimeout(fetchDebounceTimer);
+                doRefresh();
+            }
         }
     }); 
 
@@ -372,9 +388,17 @@
             const targetMatchCount = startMatchIndex + matchesToFind;
             
             const BATCH_SIZE = 100;
+            const MAX_BATCHES_PER_CYCLE = 5; // Prevent indefinitely locking the UI
+            let batchesFetched = 0;
             let consecutiveEmptyBatches = 0;
-            while (matchedIndices.length < targetMatchCount && backendHasMore && consecutiveEmptyBatches < 3) {
-                const batch = await dataSource(cols, backendOffset, BATCH_SIZE, sortKeys);
+            
+            while (matchedIndices.length < targetMatchCount && backendHasMore && consecutiveEmptyBatches < 3 && batchesFetched < MAX_BATCHES_PER_CYCLE) {
+                // Safety timeout for data fetch
+                const fetchPromise = dataSource(cols, backendOffset, BATCH_SIZE, sortKeys);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Fetch timeout")), 10000));
+                
+                const batch = await Promise.race([fetchPromise, timeoutPromise]) as any[];
+                batchesFetched++;
                 
                 if (batch && batch.length > 0) {
                     consecutiveEmptyBatches = 0;
@@ -399,6 +423,9 @@
             if (!backendHasMore && matchedIndices.length < targetMatchCount) {
                 hasMore = false;
             }
+            
+            // If we hit the batch limit but still have more to check, ensure we remain in a valid state
+            // to cycle again (isLoading will clear in finally, triggering effects if still needed)
             
             // 3. Heuristic 2: Pruning (10 screens away)
             const pageSize = actualConfig.maxVisibleRows || 20;
@@ -428,7 +455,9 @@
             }
         } catch (e) {
              console.error("Internal fetch error:", e);
-             hasMore = false; 
+             // Verify if it was a timeout, maybe don't disable hasMore immediately?
+             // But for now, safety first.
+             // hasMore = false; 
         } finally {
             isLoading = false;
         }
@@ -536,9 +565,9 @@
                 break;
             case 'ArrowDown':
                 if (items.length > 0) {
-                     const last = items[items.length - 1].index;
+                     const effectiveMax = hasMore ? data.length : data.length - 1;
                      
-                     newRow = newRow + 1;
+                     newRow = Math.min(effectiveMax, newRow + 1);
                      
                      const item = items.find(i => i.index === newRow);
                      if (item && tContainer) {
