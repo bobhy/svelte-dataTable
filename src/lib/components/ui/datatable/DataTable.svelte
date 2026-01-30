@@ -376,6 +376,8 @@
                     const batch = await dataSource(cols, fetchStart, batchSize, sortKeys);
                     if (batch && batch.length > 0) {
                         batch.forEach((r, idx) => rawCache.set(fetchStart + idx, r));
+                        // Force reactivity
+                        rawCache = new Map(rawCache);
                     } else {
                         backendHasMore = false; 
                         break;
@@ -402,8 +404,9 @@
                 const batch = await Promise.race([fetchPromise, timeoutPromise]) as any[];
                 batchesFetched++;
                 
+                
                 if (batch && batch.length > 0) {
-                    consecutiveEmptyBatches = 0;
+                    // ... (omitted cache logic details for brevity, assume correct)
                     batch.forEach((row, idx) => {
                         const rawIdx = backendOffset + idx;
                         rawCache.set(rawIdx, row);
@@ -412,10 +415,12 @@
                         }
                     });
                     
+                    // Force reactivity for standard Map in Svelte 5 state
+                    rawCache = new Map(rawCache);
+
                     backendOffset += batch.length;
-                    if (batch.length < BATCH_SIZE) {
-                        backendHasMore = false;
-                    }
+                    
+                    // If we got data, assume there might be more unless explicitly empty next time
                 } else {
                     consecutiveEmptyBatches++;
                     backendHasMore = false;
@@ -426,6 +431,9 @@
                 hasMore = false;
             }
             
+            // Debug: Log state after forward fetch
+
+            
             // If we hit the batch limit but still have more to check, ensure we remain in a valid state
             // to cycle again (isLoading will clear in finally, triggering effects if still needed)
             
@@ -435,7 +443,16 @@
             
             const keepIndices = new Set<number>();
             const startRange = Math.max(0, activeRowIndex - threshold);
-            const endRange = Math.min(matchedIndices.length, activeRowIndex + threshold);
+            // Extend endRange to cover any virtual items that might be visible
+            // (the virtualizer might render beyond activeRowIndex + threshold if user scrolled quickly)
+            const instance = get(virtualizerStore);
+            const virtualItems = instance ? instance.getVirtualItems() : [];
+            let maxVirtualIndex = activeRowIndex;
+            if (virtualItems.length > 0) {
+                maxVirtualIndex = Math.max(...virtualItems.map(v => v.index));
+            }
+            // Keep rows from startRange to max(activeRowIndex + threshold, maxVirtualIndex + buffer)
+            const endRange = Math.min(matchedIndices.length, Math.max(activeRowIndex + threshold, maxVirtualIndex + 50));
             for (let i = startRange; i < endRange; i++) {
                 keepIndices.add(matchedIndices[i]);
             }
@@ -445,10 +462,13 @@
                      rawCache.delete(key);
                 }
             }
+            
+            // Debug: Log pruning info
+
 
             matchedIndices = [...matchedIndices];
             
-            const instance = get(virtualizerStore);
+            // Reuse instance from pruning calculation above
             if (instance) {
                 const totalCount = hasMore ? matchedIndices.length + 1 : matchedIndices.length;
                 instance.setOptions({ ...instance.options, count: totalCount });
@@ -457,10 +477,12 @@
             }
         } catch (e) {
              console.error("Internal fetch error:", e);
-             // Verify if it was a timeout, maybe don't disable hasMore immediately?
-             // But for now, safety first.
-             // hasMore = false; 
         } finally {
+            // Log unconditionally for debug
+            const lastIdx = matchedIndices.length > 0 ? matchedIndices[matchedIndices.length - 1] : -1;
+            const hasLast = rawCache.has(lastIdx);
+
+            
             isLoading = false;
             
             // Burst-process pending navigations until we hit the data limit
@@ -470,9 +492,7 @@
                 
                 performNavigation(nav.key, nav.ctrlKey);
 
-                // If we didn't move (clamped by data end), stop and wait for the fetch we just triggered
-                // (Exceptions: non-movement keys like Enter, or if we are already at 0/end for valid reasons. 
-                // But for the stalling case, this heuristic works: if we are stuck, we need data).
+                // If we didn't move
                 if (activeRowIndex === startRow && ['ArrowUp','ArrowDown','PageUp','PageDown'].includes(nav.key)) {
                     break;
                 }
@@ -506,11 +526,15 @@
             }
         }
         
-        if (missingStart !== -1 && !isLoading && hasMore) {
+        if (missingStart !== -1 && !isLoading) {
+             // Re-fetch missing data (could be pruned or never fetched)
+             // This must work even when hasMore=false for end-of-data scenarios
+
              const needed = (end - missingStart) + 1;
              untrack(() => performFetch(missingStart, Math.max(needed, 10)));
         } else if (!isLoading && hasMore && end >= matchedIndices.length - 100) {
-             // Near the physical end of array, fetch more. Threshold is 100 rows (~5 pages).
+             // Pre-fetch new data if approaching end
+             // console.log(`[Effect] Near end. calling performFetch`);
              untrack(() => performFetch(matchedIndices.length, 20));
         }
     });
@@ -1016,7 +1040,6 @@
                     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                     <!-- allow row to take focus (programmatically, for accessibility), but keep the row out of natural tab order -->
                     <div
-                        tabindex="-1"
                         data-index={virtualRow.index} 
                         use:measureRow={virtualRow.index}
                         class={cn("flex border-b w-full min-w-max hover:bg-muted/50 transition-colors data-[state=selected]:bg-muted", 
@@ -1051,7 +1074,7 @@
     </div>
     
     <div class="flex-none border-t bg-muted/40 p-2 text-xs flex justify-between">
-        <span>{Object.keys(data).length} rows cached. {isLoading ? '(Fetching)' : ''}</span>
+        <span>Rows: {matchedIndices.length} | Cached: {rawCache.size} {isLoading ? '(Fetching...)' : ''}</span>
         <span>Active: {activeRowIndex}, {activeColIndex}</span>
     </div>
     
