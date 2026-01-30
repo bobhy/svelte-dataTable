@@ -86,6 +86,13 @@
     // Active Cell State (Navigation)
     let activeRowIndex = $state(0);
     let activeColIndex = $state(0);
+    
+    // Auto-focus grid on mount so keyboard navigation works immediately
+    $effect(() => {
+        if (tableContainer) {
+            tableContainer.focus();
+        }
+    });
 
     // "Not Found" Notification State
     let notFoundVisible = $state(false);
