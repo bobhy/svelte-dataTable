@@ -1045,7 +1045,8 @@
                     -->
                     <!-- svelte-ignore a11y_click_events_have_key_events -->
                     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-                    <!-- allow row to take focus (programmatically, for accessibility), but keep the row out of natural tab order -->
+                    <!-- svelte-ignore a11y_interactive_supports_focus -->
+                    <!-- Row doesn't need tabindex - focus stays on grid container for keyboard navigation -->
                     <div
                         data-index={virtualRow.index} 
                         use:measureRow={virtualRow.index}

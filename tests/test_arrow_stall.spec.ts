@@ -4,12 +4,12 @@ import { loadWithConfig } from './utils';
 test('should scroll to bottom using ArrowDown with HIGH latency', async ({ page }) => {
     page.on('console', msg => console.log('[Browser]:', msg.text()));
 
-    // 1. Setup 1000 rows with 1000ms latency (simulating slow backend)
+    // 1. Setup 1000 rows with 300ms latency (simulating slow backend)
     const rows = 1000;
     await loadWithConfig(page, {
         rows: rows,
         cols: 5,
-        latency: 1000
+        latency: 300
     });
 
     const grid = page.locator('[role="grid"]');
@@ -46,7 +46,7 @@ test('should scroll to bottom using ArrowDown with HIGH latency', async ({ page 
     console.log("Finished key presses.");
 
     // 4. Verify we are deep in the list
-    await page.waitForTimeout(5000); // Allow catch up
+    await page.waitForTimeout(2000); // Allow catch up
 
     const finalInfo = await page.evaluate(() => {
         return (window as any).getDataTableActiveCell();

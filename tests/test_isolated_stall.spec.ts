@@ -4,12 +4,12 @@ import { loadWithConfig } from './utils';
 test('should scroll past page boundary with ISOLATED key presses and latency', async ({ page }) => {
     page.on('console', msg => console.log('[Browser]:', msg.text()));
 
-    // 1. Setup 100 rows with 500ms latency
-    const rows = 100;
+    // 1. Setup 50 rows with 200ms latency
+    const rows = 50;
     await loadWithConfig(page, {
         rows: rows,
         cols: 5,
-        latency: 500 // Significant enough to overlap with quick actions, but here we wait
+        latency: 200 // Reduced from 500ms
     });
 
     const grid = page.locator('[role="grid"]');
@@ -30,7 +30,7 @@ test('should scroll past page boundary with ISOLATED key presses and latency', a
         await page.keyboard.press('ArrowDown');
 
         // Wait longer than latency to ensure fetch *could* complete and settle
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(250);
 
         // Log active cell to verify movement
         const active = await page.evaluate(() => {

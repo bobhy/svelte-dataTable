@@ -41,7 +41,7 @@ test('should process queued navigation after fetch with HIGH latency', async ({ 
     console.log("Finished key presses.");
 
     // 4. Verify we are eventually at the end
-    await page.waitForTimeout(10000); // Allow catch up
+    await page.waitForTimeout(3000); // Allow catch up
 
     const finalInfo = await page.evaluate(() => {
         return (window as any).getDataTableActiveCell();

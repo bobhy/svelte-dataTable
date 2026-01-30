@@ -52,7 +52,7 @@ test('should render data correctly at the END of the list', async ({ page }) => 
     }
 
     // Safety wait at end
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // 3. Verify the LAST row exists and has content
     const lastRowIndex = rows - 1;
