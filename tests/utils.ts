@@ -4,6 +4,7 @@ export interface TestConfig {
     config?: any; // Partial<DataTableConfig>
     rows?: number;
     cols?: number;
+    latency?: number;
     scenario?: string;
 }
 

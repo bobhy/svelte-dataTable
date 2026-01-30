@@ -21,6 +21,7 @@
       config?: Partial<DataTableConfig>;
       rows?: number;
       cols?: number;
+      latency?: number;
       scenario?: string;
   }
 
@@ -30,6 +31,7 @@
     
     let rows = testConfig?.rows ?? 50;
     let cols = testConfig?.cols ?? 5;
+    let latency = testConfig?.latency ?? 0;
     const scenario = testConfig?.scenario;
 
     // Fallback to URL params if no injected config (legacy support or manual debug)
@@ -39,9 +41,12 @@
             rows = parseInt(params.get('rows') || '100');
             cols = parseInt(params.get('cols') || '20');
         }
+        if (params.get('latency')) {
+            latency = parseInt(params.get('latency') || '0');
+        }
     }
 
-    const ds = new TestGridDataSource(rows, cols);
+    const ds = new TestGridDataSource(rows, cols, latency);
     const baseCols = ds.getColumns();
 
     let finalConfig: DataTableConfig = {

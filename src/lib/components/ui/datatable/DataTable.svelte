@@ -384,7 +384,9 @@
             }
 
             // 2. Handle FETCHING NEW rows (Forward expansion)
-            const matchesToFind = Math.max(neededMatchCount * 2, 20);
+            // Aggressively pre-fetch to tolerate network latency. 
+            // 300 rows buffer allows for significant lookahead.
+            const matchesToFind = Math.max(neededMatchCount * 4, 300);
             const targetMatchCount = startMatchIndex + matchesToFind;
             
             const BATCH_SIZE = 100;
@@ -445,7 +447,7 @@
             }
 
             matchedIndices = [...matchedIndices];
-
+            
             const instance = get(virtualizerStore);
             if (instance) {
                 const totalCount = hasMore ? matchedIndices.length + 1 : matchedIndices.length;
@@ -459,6 +461,12 @@
              // But for now, safety first.
              // hasMore = false; 
         } finally {
+            if (pendingNavigation) {
+                const nav = pendingNavigation;
+                pendingNavigation = null;
+                // Execute pending navigation immediately while still "loading" to prevent new keys from interleaving
+                performNavigation(nav.key, nav.ctrlKey);
+            }
             isLoading = false;
         }
     }
@@ -489,27 +497,21 @@
         if (missingStart !== -1 && !isLoading && hasMore) {
              const needed = (end - missingStart) + 1;
              untrack(() => performFetch(missingStart, Math.max(needed, 10)));
-        } else if (!isLoading && hasMore && end >= matchedIndices.length - 5) {
-             // Near the physical end of array, fetch more
+        } else if (!isLoading && hasMore && end >= matchedIndices.length - 100) {
+             // Near the physical end of array, fetch more. Threshold is 100 rows (~5 pages).
              untrack(() => performFetch(matchedIndices.length, 20));
         }
     });
 
-    // -- Keyboard Navigation (Enhanced) --
-    function handleKeyDown(e: KeyboardEvent) {
+    // State for pending navigation during async operations or rendering
+    let pendingNavigation: { key: string, ctrlKey: boolean } | null = null;
+    let isNavigating = $state(false); // Local flag to track navigation "busy" state beyond just isLoading
+
+    function performNavigation(key: string, ctrlKey: boolean) {
         const rowCount = data.length; 
-        
         const instance = get(virtualizerStore);
-        // virtualItems is already available in state, but let's use the instance for consistency in this function scope
-        // actually using the state `virtualItems` is safer visually.
         const items = virtualItems; 
         const tContainer = tableContainer;
-        
-        // Helper to scroll maintaining relative position
-        const scrollRelative = (targetRow: number, relativeOffset: number) => {
-             const targetTop = Math.max(0, targetRow - relativeOffset);
-             instance.scrollToIndex(targetTop, { align: 'start' }); 
-        };
 
         const getPageSize = () => {
              if (!tContainer || items.length === 0) return 10;
@@ -521,9 +523,12 @@
         let newRow = activeRowIndex;
         let newCol = activeColIndex;
 
-        const targetItem = items.find(i => i.index === newRow);
-        
-        switch(e.key) {
+        // Reset editing state if moving
+        if (key !== 'Enter' && isEditDialogOpen) {
+            isEditDialogOpen = false;
+        }
+
+        switch(key) {
             case 'Enter':
                 if (config.isEditable && items.length > 0) {
                    const row = uiRows[activeRowIndex];
@@ -539,7 +544,6 @@
                      newRow = Math.max(0, newRow - 1);
                      
                      // Manual visibility check
-                     // Find the item for the new row
                      const item = items.find(i => i.index === newRow);
                      if (item && tContainer) {
                          const itemTop = item.start;
@@ -547,17 +551,12 @@
                          const scrollTop = tContainer.scrollTop;
                          const clientHeight = tContainer.clientHeight;
                          
-                         // If "above" the visible area
                          if (itemTop < scrollTop) {
                              instance.scrollToIndex(newRow, { align: 'start' });
-                         } 
-                         // If "below" the visible area (rare for Up, but possible)
-                         else if (itemBottom > scrollTop + clientHeight) {
+                         } else if (itemBottom > scrollTop + clientHeight) {
                              instance.scrollToIndex(newRow, { align: 'end' });
                          }
-                         // Else: fully visible. Do NOT scroll.
                      } else {
-                         // Fallback if item is not rendered yet (e.g. rapid scrolling)
                          instance.scrollToIndex(newRow, { align: 'auto' });
                      }
                 }
@@ -566,7 +565,6 @@
             case 'ArrowDown':
                 if (items.length > 0) {
                      const effectiveMax = hasMore ? data.length : data.length - 1;
-                     
                      newRow = Math.min(effectiveMax, newRow + 1);
                      
                      const item = items.find(i => i.index === newRow);
@@ -587,37 +585,20 @@
                 }
                 handled = true;
                 break;
-            // PageUp/Down omitted for brevity but logic is same as before, using instance.scrollToIndex
-             case 'PageUp':
+            case 'PageUp':
                 if (items.length > 0) {
                     const pageSize = getPageSize();
-                    const first = items[0].index;
-                    let visualFirst = first;
-                    if (tContainer) {
-                        const topScan = items.find(i => i.start >= tContainer.scrollTop);
-                        if (topScan) visualFirst = topScan.index;
-                    }
-                    const visualRelative = activeRowIndex - visualFirst;
                     newRow = Math.max(0, activeRowIndex - pageSize);
-                    const targetTop = Math.max(0, newRow - visualRelative);
-                    instance.scrollToIndex(targetTop, { align: 'start' });
+                    instance.scrollToIndex(newRow, { align: 'start' });
                 }
                 handled = true;
                 break;
             case 'PageDown':
                 if (items.length > 0) {
                     const pageSize = getPageSize();
-                    const first = items[0].index;
-                    let visualFirst = first;
-                    if (tContainer) {
-                         const topScan = items.find(i => i.start >= tContainer.scrollTop);
-                         if (topScan) visualFirst = topScan.index;
-                    }
-                    const visualRelative = activeRowIndex - visualFirst;
                     const effectiveMax = hasMore ? data.length : data.length - 1;
                     newRow = Math.min(effectiveMax, activeRowIndex + pageSize);
-                    const targetTop = Math.max(0, newRow - visualRelative);
-                     instance.scrollToIndex(targetTop, { align: 'start' });
+                    instance.scrollToIndex(newRow, { align: 'start' });
                 }
                 handled = true;
                 break;
@@ -630,21 +611,35 @@
                 handled = true;
                 break;
              case 'Home':
-                if (e.ctrlKey) newRow = 0;
+                if (ctrlKey) newRow = 0;
                 else newCol = 0;
                 handled = true;
                 break;
             case 'End':
-                if (e.ctrlKey) newRow = rowCount - 1;
+                if (ctrlKey) newRow = rowCount - 1;
                 else newCol = columns.length - 1;
                 handled = true;
                 break;
         }
 
         if (handled) {
-            e.preventDefault();
             activeRowIndex = newRow;
             activeColIndex = newCol;
+        }
+    }
+
+    // -- Keyboard Navigation (Enhanced) --
+    function handleKeyDown(e: KeyboardEvent) {
+        if (['Enter', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+            e.preventDefault();
+            
+            // If busy, queue the key (last one wins)
+            if (isLoading) {
+                pendingNavigation = { key: e.key, ctrlKey: e.ctrlKey };
+                return;
+            }
+            
+            performNavigation(e.key, e.ctrlKey);
         }
     }
 

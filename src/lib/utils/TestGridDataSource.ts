@@ -4,13 +4,19 @@ import type { SortKey, DataTableColumn } from '$lib/components/ui/datatable/Data
 export class TestGridDataSource {
     rowCount: number;
     colCount: number;
+    latency: number;
 
-    constructor(rowCount: number, colCount: number) {
+    constructor(rowCount: number, colCount: number, latency: number = 0) {
         this.rowCount = rowCount;
         this.colCount = colCount;
+        this.latency = latency;
     }
 
     async getRows(columns: string[], startRow: number, numRows: number, sortKeys: SortKey[], filters?: { global?: string }): Promise<any[]> {
+        if (this.latency > 0) {
+            await new Promise(resolve => setTimeout(resolve, this.latency));
+        }
+
         // Create an array of row indices
         let indices = Array.from({ length: this.rowCount }, (_, i) => i);
 
