@@ -461,13 +461,25 @@
              // But for now, safety first.
              // hasMore = false; 
         } finally {
-            if (pendingNavigation) {
-                const nav = pendingNavigation;
-                pendingNavigation = null;
-                // Execute pending navigation immediately while still "loading" to prevent new keys from interleaving
-                performNavigation(nav.key, nav.ctrlKey);
-            }
             isLoading = false;
+            
+            // Burst-process pending navigations until we hit the data limit
+            while (pendingNavigationQueue.length > 0) {
+                const startRow = activeRowIndex;
+                const nav = pendingNavigationQueue[0]; // Peek
+                
+                performNavigation(nav.key, nav.ctrlKey);
+
+                // If we didn't move (clamped by data end), stop and wait for the fetch we just triggered
+                // (Exceptions: non-movement keys like Enter, or if we are already at 0/end for valid reasons. 
+                // But for the stalling case, this heuristic works: if we are stuck, we need data).
+                if (activeRowIndex === startRow && ['ArrowUp','ArrowDown','PageUp','PageDown'].includes(nav.key)) {
+                    break;
+                }
+                
+                // Consumed successfully
+                pendingNavigationQueue.shift();
+            }
         }
     }
 
@@ -504,10 +516,11 @@
     });
 
     // State for pending navigation during async operations or rendering
-    let pendingNavigation: { key: string, ctrlKey: boolean } | null = null;
+    let pendingNavigationQueue: { key: string, ctrlKey: boolean }[] = [];
     let isNavigating = $state(false); // Local flag to track navigation "busy" state beyond just isLoading
 
     function performNavigation(key: string, ctrlKey: boolean) {
+
         const rowCount = data.length; 
         const instance = get(virtualizerStore);
         const items = virtualItems; 
@@ -633,9 +646,9 @@
         if (['Enter', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
             e.preventDefault();
             
-            // If busy, queue the key (last one wins)
+            // If busy, queue the key
             if (isLoading) {
-                pendingNavigation = { key: e.key, ctrlKey: e.ctrlKey };
+                pendingNavigationQueue.push({ key: e.key, ctrlKey: e.ctrlKey });
                 return;
             }
             

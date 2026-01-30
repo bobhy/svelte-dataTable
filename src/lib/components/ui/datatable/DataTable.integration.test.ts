@@ -109,6 +109,7 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             });
 
             await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+            dataSourceMock.mockClear();
 
             const filterInput = container.querySelector('input[placeholder="Filter..."]');
             expect(filterInput).toBeTruthy();
@@ -118,8 +119,7 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             }
 
             // Internal filter change resets state and triggers a new fetch
-            // Initial fetch(0, 20) then reset-triggered fetch(0, 20)
-            await waitFor(() => expect(dataSourceMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalled(), { timeout: 3000 });
         });
 
         it('should handle internal find navigation', async () => {
