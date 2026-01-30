@@ -160,18 +160,11 @@ export interface FindResult {
     columnName?: string;   // Optional: column containing the match
 }
 
-export type FindCallback = (
-    searchTerm: string,
-    direction: FindDirection,
-    currentRowIndex: number
-) => Promise<FindResult | number | null>;  // Can return FindResult, just row index, or null
-
 export interface DataTableProps {
     config: DataTableConfig;
     dataSource: DataSourceCallback;
     onRowEdit?: RowEditCallback;
     onSelection?: SelectedCellsCallback;
-    onFind?: FindCallback;
     class?: string;
     globalFilter?: string;
     findTerm?: string;

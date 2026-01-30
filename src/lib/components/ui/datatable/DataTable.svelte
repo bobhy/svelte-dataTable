@@ -18,15 +18,21 @@
     import RowEditForm from './RowEditForm.svelte';
     import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.ts';
 
-	let { config, dataSource, onRowEdit, onSelection, onFind, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
+	let { config, dataSource, onRowEdit, onSelection, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
     // -- Centralized Defaults --
     const actualConfig = $derived({ ...DEFAULT_DATA_TABLE_CONFIG, ...config });
     const actualColumns = $derived(actualConfig.columns.map(col => ({ ...DEFAULT_DATA_TABLE_COLUMN, ...col })));
 
+    const PRUNED_ROW = { __pruned: true };
+
     // -- State --
-	let data = $state<any[]>([]);
-    let hasMore = $state(true);
+    let rawCache = $state(new Map<number, any>());
+    let matchedIndices = $state<number[]>([]);
+	let data = $derived(matchedIndices.map(idx => rawCache.get(idx) || PRUNED_ROW)); 
+    let backendOffset = $state(0); // Next raw index to fetch
+    let backendHasMore = $state(true);
+    let hasMore = $state(true); // Whether more matches are possible
     let isLoading = $state(false);
 	let sorting = $state<SortingState>([]);
     let columnSizing = $state({});
@@ -48,7 +54,10 @@
             
             // Reset and fetch
             untrack(() => {
-                data = [];
+                rawCache.clear();
+                matchedIndices = [];
+                backendOffset = 0;
+                backendHasMore = true;
                 hasMore = true;
                 isLoading = false;
                 const instance = get(virtualizerStore);
@@ -87,23 +96,30 @@
         const result = await onRowEdit(action, formData);
         
         if (result === true) {
-            // Update local cache
+            const keyCol = actualConfig.keyColumn;
+            const itemId = formData[keyCol];
+
             if (action === 'delete') {
-                const idx = data.findIndex(d => d[actualConfig.keyColumn] === formData[actualConfig.keyColumn]);
-                if (idx !== -1) {
-                    data.splice(idx, 1);
-                    data = [...data]; // Trigger update
+                const matchIdx = matchedIndices.findIndex(idx => rawCache.get(idx)?.[keyCol] === itemId);
+                if (matchIdx !== -1) {
+                    const rawIdx = matchedIndices[matchIdx];
+                    matchedIndices.splice(matchIdx, 1);
+                    rawCache.delete(rawIdx);
+                    matchedIndices = [...matchedIndices];
                 }
             } else if (action === 'update') {
-               const idx = data.findIndex(d => d[actualConfig.keyColumn] === formData[actualConfig.keyColumn]);
-               if (idx !== -1) {
-                    data[idx] = { ...data[idx], ...formData };
-                    data = [...data];
+               for (const [rawIdx, row] of rawCache.entries()) {
+                   if (row[keyCol] === itemId) {
+                       rawCache.set(rawIdx, { ...row, ...formData });
+                       break;
+                   }
                }
+               matchedIndices = [...matchedIndices]; 
             } else if (action === 'create') {
-                // For create, we might need to refetch or prepend. 
-                // Simple approach: prepend to data
-                data = [formData, ...data];
+                const localIdx = -1 - Date.now(); // Unique negative index
+                rawCache.set(localIdx, formData);
+                matchedIndices.unshift(localIdx);
+                matchedIndices = [...matchedIndices];
             }
             return true;
         }
@@ -123,7 +139,7 @@
             cell: (info: any) => {
                 const val = info.getValue();
                 // Safety check for sparse data (pruned rows)
-                if (val === undefined && !info.row.original) return '...'; 
+                if (info.row.original.__pruned) return '...'; 
                 
                 if (col.formatter) return col.formatter(val);
                 return val;
@@ -320,41 +336,99 @@
     
     // -- Data Fetching (Smart Caching) --
     
-    async function performFetch(startRow: number, neededCount: number) {
-        if (isLoading || !hasMore) return;
+    async function performFetch(startMatchIndex: number, neededMatchCount: number) {
+        if (isLoading) return;
         isLoading = true;
         try {
-            // Heuristic 1: Fetch Ahead (2x needed)
-            const fetchCount = neededCount * 2;
-            
-            const cols = [config.keyColumn, ...config.columns.map((c: any) => c.name)];
+            const cols = [actualConfig.keyColumn, ...actualConfig.columns.map((c: any) => c.name)];
             const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
             
-            // Remove filters from call
-            const newRawRows = await dataSource(cols, startRow, fetchCount, sortKeys);
-            
-            // Sparse-safe update
-            if (data.length < startRow + newRawRows.length) {
-                data.length = startRow + newRawRows.length;
+            const filterLower = (globalFilter || "").toLowerCase();
+            const isMatch = (row: any) => {
+                if (!filterLower) return true;
+                return Object.values(row).some(v => String(v).toLowerCase().includes(filterLower));
+            };
+
+            // 1. Handle RE-FETCHING of pruned rows in requested range
+            const requestedEnd = startMatchIndex + neededMatchCount;
+            for (let i = startMatchIndex; i < Math.min(requestedEnd, matchedIndices.length); i++) {
+                const rawIdx = matchedIndices[i];
+                if (rawIdx !== undefined && !rawCache.has(rawIdx)) {
+                    // Missing due to pruning. Re-fetch a batch starting here.
+                    const fetchStart = rawIdx;
+                    const batchSize = Math.max(50, requestedEnd - i);
+                    const batch = await dataSource(cols, fetchStart, batchSize, sortKeys);
+                    if (batch && batch.length > 0) {
+                        batch.forEach((r, idx) => rawCache.set(fetchStart + idx, r));
+                    } else {
+                        backendHasMore = false; 
+                        break;
+                    }
+                }
             }
-            for (let i = 0; i < newRawRows.length; i++) {
-                data[startRow + i] = newRawRows[i];
+
+            // 2. Handle FETCHING NEW rows (Forward expansion)
+            const matchesToFind = Math.max(neededMatchCount * 2, 20);
+            const targetMatchCount = startMatchIndex + matchesToFind;
+            
+            const BATCH_SIZE = 100;
+            let consecutiveEmptyBatches = 0;
+            while (matchedIndices.length < targetMatchCount && backendHasMore && consecutiveEmptyBatches < 3) {
+                const batch = await dataSource(cols, backendOffset, BATCH_SIZE, sortKeys);
+                
+                if (batch && batch.length > 0) {
+                    consecutiveEmptyBatches = 0;
+                    batch.forEach((row, idx) => {
+                        const rawIdx = backendOffset + idx;
+                        rawCache.set(rawIdx, row);
+                        if (isMatch(row)) {
+                            matchedIndices.push(rawIdx);
+                        }
+                    });
+                    
+                    backendOffset += batch.length;
+                    if (batch.length < BATCH_SIZE) {
+                        backendHasMore = false;
+                    }
+                } else {
+                    consecutiveEmptyBatches++;
+                    backendHasMore = false;
+                }
             }
             
-            if (newRawRows.length < fetchCount) hasMore = false;
+            if (!backendHasMore && matchedIndices.length < targetMatchCount) {
+                hasMore = false;
+            }
             
-            // Immediately update virtualizer count to prevent race condition
+            // 3. Heuristic 2: Pruning (10 screens away)
+            const pageSize = actualConfig.maxVisibleRows || 20;
+            const threshold = pageSize * 10;
+            
+            const keepIndices = new Set<number>();
+            const startRange = Math.max(0, activeRowIndex - threshold);
+            const endRange = Math.min(matchedIndices.length, activeRowIndex + threshold);
+            for (let i = startRange; i < endRange; i++) {
+                keepIndices.add(matchedIndices[i]);
+            }
+            
+            for (const key of rawCache.keys()) {
+                if (!keepIndices.has(key)) {
+                     rawCache.delete(key);
+                }
+            }
+
+            matchedIndices = [...matchedIndices];
+
             const instance = get(virtualizerStore);
-            const newCount = hasMore ? data.length + 1 : data.length;
-            instance.setOptions({
-                count: newCount,
-                getScrollElement: () => tableContainer || null,
-                estimateSize: () => estimatedRowHeight,
-                measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
-                overscan: 5
-            });
+            if (instance) {
+                const totalCount = hasMore ? matchedIndices.length + 1 : matchedIndices.length;
+                instance.setOptions({ ...instance.options, count: totalCount });
+                // Force a measure/re-render for the virtualizer
+                instance.measure();
+            }
         } catch (e) {
-             console.error("Fetch error", e);
+             console.error("Internal fetch error:", e);
+             hasMore = false; 
         } finally {
             isLoading = false;
         }
@@ -362,37 +436,33 @@
 
     // Smart Infinite Scroll / Range Detection
     $effect(() => {
-        // check from state
-        if (virtualItems.length === 0) {
+        if (matchedIndices.length === 0) {
             // Initial load
-            if (data.length === 0 && hasMore && !isLoading) {
-                 untrack(() => performFetch(0, 20));
+            if (hasMore && !isLoading) {
+                 untrack(() => performFetch(0, actualConfig.maxVisibleRows || 20));
             }
             return;
         }
         
-        // Check finding missing data in visible range + buffer
-        const start = virtualItems[0].index;
-        const end = virtualItems[virtualItems.length - 1].index;
+        // Check for missing data in visible range (due to pruning or incomplete fill)
+        const start = virtualItems[0]?.index ?? 0;
+        const end = virtualItems[virtualItems.length - 1]?.index ?? 0;
         
-        // Check if we have data for visible items
         let missingStart = -1;
-        
-        // Iterate visible items to find gaps
         for (const item of virtualItems) {
-            if (!data[item.index]) {
+            const rawIdx = matchedIndices[item.index];
+            if (rawIdx === undefined || !rawCache.has(rawIdx)) {
                 missingStart = item.index;
                 break;
             }
         }
         
-        // Also check "End of Grid" heuristic
         if (missingStart !== -1 && !isLoading && hasMore) {
              const needed = (end - missingStart) + 1;
              untrack(() => performFetch(missingStart, Math.max(needed, 10)));
-        } else if (!isLoading && hasMore && end >= data.length - 5) {
-             // Near the physical end of array, fetch more (append)
-             untrack(() => performFetch(data.length, 20)); // basic append
+        } else if (!isLoading && hasMore && end >= matchedIndices.length - 5) {
+             // Near the physical end of array, fetch more
+             untrack(() => performFetch(matchedIndices.length, 20));
         }
     });
 
@@ -621,33 +691,63 @@
             }
         }
         
-        // Scroll to it
-        const instance = get(virtualizerStore);
-        instance.scrollToIndex(index, { align: 'start' });
+        // Scroll to it - with a small delay to ensure layout
+        setTimeout(() => {
+            const instance = get(virtualizerStore);
+            if (instance) {
+                instance.scrollToIndex(index, { align: 'start' });
+            }
+        }, 50);
     }
 
     async function handleFind(direction: FindDirection, sourceElement?: HTMLElement, fromIndex?: number) {
-        if (!onFind || !findTerm) return;
+        if (!findTerm) return;
         
-        // If fromIndex is provided, use it. Otherwise use activeRowIndex.
-        // This allows searching from (activeRowIndex - 1) when typing to keep the current match.
-        const startIndex = fromIndex !== undefined ? fromIndex : activeRowIndex;
+        const lowerTerm = findTerm.toLowerCase();
+        let currentIndex = fromIndex !== undefined ? fromIndex : activeRowIndex;
         
-        const result = await onFind(findTerm, direction, startIndex);
-        
-        // Handle different return types: FindResult object, number, or null
-        if (result !== null && result !== undefined) {
-            if (typeof result === 'number') {
-                // Legacy: just a row index
-                scrollToRow(result);
+        const cols = [actualConfig.keyColumn, ...actualConfig.columns.map((c: any) => c.name)];
+        const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
+
+        while (true) {
+            if (direction === 'next') {
+                currentIndex++;
+                if (currentIndex >= matchedIndices.length) {
+                    if (backendHasMore) {
+                        await performFetch(matchedIndices.length, 20);
+                        if (currentIndex >= matchedIndices.length) break; 
+                    } else {
+                        break;
+                    }
+                }
             } else {
-                // FindResult object with rowIndex and optional columnName
-                scrollToRow(result.rowIndex, result.columnName);
+                currentIndex--;
+                if (currentIndex < 0) break;
             }
-        } else {
-            // No match found - show notification
-            showNotFoundNotification(sourceElement);
+
+            const rawIdx = matchedIndices[currentIndex];
+            let row = rawCache.get(rawIdx);
+            
+            if (!row) {
+                const batch = await dataSource(cols, rawIdx, 50, sortKeys);
+                if (batch && batch.length > 0) {
+                    batch.forEach((r, idx) => rawCache.set(rawIdx + idx, r));
+                    row = rawCache.get(rawIdx);
+                }
+            }
+
+            if (row) {
+                for (const col of actualColumns) {
+                    const val = row[col.name];
+                    if (val !== undefined && val !== null && String(val).toLowerCase().includes(lowerTerm)) {
+                        scrollToRow(currentIndex, col.name);
+                        return;
+                    }
+                }
+            }
         }
+
+        showNotFoundNotification(sourceElement);
     }
 
     function showNotFoundNotification(sourceElement?: HTMLElement) {
@@ -691,11 +791,10 @@
     let lastFindTerm = "";
     $effect(() => {
         const term = findTerm;
-        if (term && term !== lastFindTerm && onFind) {
+        if (term && term !== lastFindTerm) {
             lastFindTerm = term;
             // Trigger search from current position (forward)
             // Start from activeRowIndex - 1 so that the current row is checked first
-            // (assuming onFind searches strictly after the given index)
             untrack(() => handleFind('next', findInputElement, activeRowIndex - 1));
         } else if (!term) {
             lastFindTerm = "";

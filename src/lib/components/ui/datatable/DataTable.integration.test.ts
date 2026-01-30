@@ -101,35 +101,48 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
         });
 
         // Filtering is currently not implemented in the component (no UI input).
-        it.skip('should handle filtering', async () => {
+        it('should handle internal filtering', async () => {
             const user = (userEvent as any).setup();
-            const { container } = render(DataTable, { config: defaultConfig, dataSource: dataSourceMock as DataSourceCallback });
+            const { container } = render(DataTable, {
+                config: defaultConfig,
+                dataSource: dataSourceMock as DataSourceCallback
+            });
+
             await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
-            const initialCalls = dataSourceMock.mock.calls.length;
+
             const filterInput = container.querySelector('input[placeholder="Filter..."]');
             expect(filterInput).toBeTruthy();
-            if (filterInput) await user.type(filterInput, 'Item 1');
-            await waitFor(() => expect(dataSourceMock.mock.calls.length).toBeGreaterThan(initialCalls), { timeout: 2000 });
+
+            if (filterInput) {
+                await user.type(filterInput, 'Item 5');
+            }
+
+            // Internal filter change resets state and triggers a new fetch
+            // Initial fetch(0, 20) then reset-triggered fetch(0, 20)
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
         });
 
-        it('should handle find navigation', async () => {
-            // Mock console.warn to suppress virtualizer warnings (expected in JSDOM)
-            // TanStack Virtual logs "Failed to get offset for index" via console.warn when
-            // scrollToIndex() is called in an environment without real layout.
+        it('should handle internal find navigation', async () => {
             const consoleWarnMock = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
             const user = (userEvent as any).setup();
-            const onFind = vi.fn().mockResolvedValue(1); // Mock returning index 1
-            const { container } = render(DataTable, { config: defaultConfig, dataSource: dataSourceMock as DataSourceCallback, onFind, findTerm: 'Item' });
+            const { container } = render(DataTable, {
+                config: defaultConfig,
+                dataSource: dataSourceMock as DataSourceCallback,
+                findTerm: 'Item 2'
+            });
+
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
 
             const nextBtn = container.querySelector('button[title="Find Next"]');
             expect(nextBtn).toBeTruthy();
+
             if (nextBtn) await user.click(nextBtn);
 
-            expect(onFind).toHaveBeenCalledWith('Item', 'next', expect.any(Number));
+            // Verify no "not found" notification appears for a valid item
+            const notFound = container.querySelector('.not-found-notification');
+            expect(notFound).toBeFalsy();
 
-            // Verify expected virtualizer warning was logged (documents accepted behavior)
-            expect(consoleWarnMock).toHaveBeenCalledWith('Failed to get offset for index:', 1);
             consoleWarnMock.mockRestore();
         });
 

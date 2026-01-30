@@ -74,7 +74,7 @@
 
     config = finalConfig;
     dataSource = (cols: string[], start: number, num: number, sort: any[]) => 
-        ds.getRows(cols, start, num, sort, { global: currentFilter });
+        ds.getRows(cols, start, num, sort);
     isReady = true;
 
     // Expose API for testing
@@ -97,40 +97,6 @@
                 {dataSource}
                 bind:globalFilter={currentFilter}
                 onRowEdit={onRowEdit}
-                onFind={async (term: string, direction: 'next' | 'previous', currentIndex: number) => {
-                    // Search through test data across all columns
-                    const lowerTerm = term.toLowerCase();
-                    const totalRows = (window as any).__TEST_CONFIG__?.rows ?? 50;
-                    const cols = (window as any).__TEST_CONFIG__?.cols ?? 5;
-                    
-                    const searchInRow = (rowIndex: number): string | null => {
-                        // Check each column for the search term
-                        for (let colIdx = 0; colIdx < cols; colIdx++) {
-                            const cellValue = `R${rowIndex}C${colIdx}`;
-                            if (cellValue.toLowerCase().includes(lowerTerm)) {
-                                return `col${colIdx}`;  // Return column name matching TestGridDataSource format
-                            }
-                        }
-                        return null;
-                    };
-                    
-                    if (direction === 'next') {
-                        for (let i = currentIndex + 1; i < totalRows; i++) {
-                            const columnName = searchInRow(i);
-                            if (columnName) {
-                                return { rowIndex: i, columnName };
-                            }
-                        }
-                    } else {
-                        for (let i = currentIndex - 1; i >= 0; i--) {
-                            const columnName = searchInRow(i);
-                            if (columnName) {
-                                return { rowIndex: i, columnName };
-                            }
-                        }
-                    }
-                    return null;  // Not found
-                }}
                 class="h-full w-full" 
             />
         </div>

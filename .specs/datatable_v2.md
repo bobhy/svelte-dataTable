@@ -4,7 +4,7 @@
 The DataTable component invokes the datasource callback to fetch extra data to reduce data  source overhead.  It also caches previously fetched data to when it is no longer visible in case the user scrolls back to make the cached data visible again.
 It uses 2 hueristics to limit the amount of cached data.
 - fetch-ahead hueristic -- when it needs to fetch more data, datatable asks for twice as many rows as it needs to fill in the rest of the datatable (from visible row of the active location down to end of data grid) and caches the extra.  So if datatable is 10 rows and user did full page down, datatable would request 20 rows.  But if datatable is doing a client-side filter and has filled 5 rows (with filtered data), it would request only 10 more rows.  
-- limiting hueristic -- when data datatable is about to fetch more data, it will throw away cached rows that are more than 10 screens away from the current location.
+- limiting hueristic -- when datatable is about to fetch more data, it will throw away cached rows that are more than 10 screens away from the current location.
 - add unit tests to verify the amount of cached data complies with the hueristics when the datagrid is scrolled by half-grids and several grids, both forward and backward.
 Add a unit tests to correct operation when the data source does not have as many rows as the data table was requesting.  
 
