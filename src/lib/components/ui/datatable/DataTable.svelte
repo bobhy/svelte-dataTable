@@ -9,7 +9,7 @@
 		type SortingState
 	} from '@tanstack/svelte-table';
 	import { createVirtualizer, type VirtualItem } from '@tanstack/svelte-virtual';
-	import { type DataTableProps, type DataTableConfig, type DataTableColumn, type SortKey, type ActiveCellInfo, type FindDirection, type FindResult, DEFAULT_DATA_TABLE_COLUMN, DEFAULT_DATA_TABLE_CONFIG } from './DataTableTypes.ts';
+	import { type DataTableProps, type DataTableConfig, type DataTableColumn, type SortKey, type ActiveCellInfo, DEFAULT_DATA_TABLE_COLUMN, DEFAULT_DATA_TABLE_CONFIG } from './DataTableTypes.ts';
 	import { untrack } from 'svelte';
     import { cn } from '$lib/utils.ts';
     import { ArrowUp, ArrowDown, ChevronDown, ChevronUp } from '@lucide/svelte';
@@ -18,7 +18,10 @@
     import RowEditForm from './RowEditForm.svelte';
     import type { RowEditCallback, RowAction, RowEditResult } from './DataTableTypes.ts';
 
-	let { config, dataSource, onRowEdit, onSelection, class: className, globalFilter = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
+    // search directions
+    type FindDirection = 'next' | 'prev';
+
+	let { config, dataSource, onRowEdit, class: className, filterTerm: filterTerm = $bindable(""), findTerm = $bindable("") }: DataTableProps = $props();
 
     // -- Centralized Defaults --
     const actualConfig = $derived({ ...DEFAULT_DATA_TABLE_CONFIG, ...config });
@@ -46,7 +49,7 @@
     let fetchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
     $effect(() => {
-        const f = globalFilter;
+        const f = filterTerm;
         const s = sorting;
         const sJson = JSON.stringify(s);
         
@@ -366,7 +369,7 @@
             const cols = [actualConfig.keyColumn, ...actualConfig.columns.map((c: any) => c.name)];
             const sortKeys: SortKey[] = sorting.map(s => ({ key: s.id, direction: s.desc ? 'desc' : 'asc' }));
             
-            const filterLower = (globalFilter || "").toLowerCase();
+            const filterLower = (filterTerm || "").toLowerCase();
             const isMatch = (row: any) => {
                 if (!filterLower) return true;
                 return Object.values(row).some(v => String(v).toLowerCase().includes(filterLower));
@@ -702,9 +705,7 @@
             }
             selectedRowIndices = newSet;
             
-            if (onSelection) {
-                // Notify parent...
-            }
+            // todo notify parent when cell(s) selected
         } else {
             if (selectedRowIndices.size > 0 && !e.shiftKey) {
                 selectedRowIndices = new Set();
@@ -723,7 +724,15 @@
         }
     }
 
-    // -- Public API --
+    /** 
+     * Get the currently active cell.
+     * The active cell is the one currently highlighted by the keyboard navigation, 
+     * and is not necessarily *selected*.
+     * 
+     * @returns {ActiveCellInfo | null} The currently active cell, or null if no cell is active.
+     * 
+     * TODO: why isn't this a prop?
+    */
     export function getActiveCell(): ActiveCellInfo | null {
         if (data.length === 0) return null;
         
@@ -742,8 +751,7 @@
         return {
             dataRowIndex: activeRowIndex,
             dataColumnName: (columns[activeColIndex] as any).accessorKey as string,
-            viewportRowIndex,
-            viewportColumnName: (columns[activeColIndex] as any).accessorKey as string
+            viewportRowIndex
         };
     }
 
@@ -938,7 +946,7 @@
                 <input 
                     type="text" 
                     placeholder="Filter..." 
-                    bind:value={globalFilter}
+                    bind:value={filterTerm}
                     class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
                 />
             {/if}
@@ -950,14 +958,14 @@
                         placeholder="Find..." 
                         bind:value={findTerm}
                         onkeydown={(e) => {
-                            if (e.key === 'Enter') handleFind(e.shiftKey ? 'previous' : 'next', e.currentTarget);
+                            if (e.key === 'Enter') handleFind(e.shiftKey ? 'prev' : 'next', e.currentTarget);
                         }}
                         class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 find-input"
                     />
                     <button 
                         bind:this={findPrevButton}
                         class="p-2 hover:bg-muted rounded find-prev-btn" 
-                        onclick={(e) => handleFind('previous', e.currentTarget)} 
+                        onclick={(e) => handleFind('prev', e.currentTarget)} 
                         title="Find Previous"
                     >
                         <ChevronUp class="w-4 h-4" />

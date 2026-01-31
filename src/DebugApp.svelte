@@ -70,7 +70,7 @@
         <DataTable 
             {config} 
             {dataSource} 
-            bind:globalFilter={filterTerm} 
+            bind:filterTerm={filterTerm} 
             bind:findTerm={findTerm}
         />
     </div>

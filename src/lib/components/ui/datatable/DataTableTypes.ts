@@ -119,7 +119,7 @@ export interface SortKey {
 }
 
 /**
- * Callback to update data source when user edits data
+ * Callback to update data source when user edits data in the table
  * 
  * @param action - The action to perform.
  * @param row - The row to edit.
@@ -144,32 +144,32 @@ export type RowAction = 'update' | 'create' | 'delete';
  */
 export type RowEditResult = boolean | { error: string };
 
-// Selection Callback Types
-export interface SelectedCell {
-    rowKey: any;
-    columnKey: string;
-}
-
-export type SelectedCellsCallback = (selectedCells: SelectedCell[]) => Promise<string | null>;
-
-// Find Callback Types
-export type FindDirection = 'next' | 'previous';
-
-export interface FindResult {
-    rowIndex: number;      // 0-based row index in the dataset
-    columnName?: string;   // Optional: column containing the match
-}
-
+/**
+ * DataTable Props
+ * 
+ * @property {DataTableConfig} config - The config of the table.
+ * @property {DataSourceCallback} dataSource - The data source of the table.
+ * @property {RowEditCallback} [onRowEdit] - The row edit callback of the table.
+ * @property {string} [class] - The class of the table.
+ * @property {string} [filterTerm] - Current filter term of the table.
+ * @property {string} [findTerm] - Current find term of the table.
+ */
 export interface DataTableProps {
     config: DataTableConfig;
     dataSource: DataSourceCallback;
     onRowEdit?: RowEditCallback;
-    onSelection?: SelectedCellsCallback;
     class?: string;
-    globalFilter?: string;
+    filterTerm?: string;
     findTerm?: string;
 }
 
+/**
+ * Currently active cell, returned by {@link DataTable.getActiveCell}
+ * 
+ * @property {number} dataRowIndex - The 0-based index of the row in the backend data source.
+ * @property {string} dataColumnName - The name of the key column.
+ * @property {number | null} viewportRowIndex - The 0-based index of the row in the rendered window, null if not visible.
+ */
 export interface ActiveCellInfo {
     // Data Source coordinates
     dataRowIndex: number; // 0-based index in the full dataset
@@ -180,5 +180,6 @@ export interface ActiveCellInfo {
     // "Grid Row" usually means 0..N relative to the viewport? Or 0..N in the table?
     // "visible position... by grid row" implies 0-based index in the CURRENT VIEWPORT.
     viewportRowIndex: number | null; // 0-based index in the rendered window, null if not visible
-    viewportColumnName: string; // Same as dataColumnName usually
 }
+
+

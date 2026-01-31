@@ -100,7 +100,7 @@
                 bind:this={tableComponent} 
                 {config} 
                 {dataSource}
-                bind:globalFilter={currentFilter}
+                bind:filterTerm={currentFilter}
                 onRowEdit={onRowEdit}
                 class="h-full w-full" 
             />
