@@ -164,7 +164,7 @@ export interface DataTableProps {
 }
 
 /**
- * Currently active cell, returned by {@link DataTable.getActiveCell}
+ * Row and column info about the currently active cell, returned by {@link DataTable.getActiveCell}
  * 
  * @property {number} dataRowIndex - The 0-based index of the row in the backend data source.
  * @property {string} dataColumnName - The name of the key column.
@@ -180,6 +180,27 @@ export interface ActiveCellInfo {
     // "Grid Row" usually means 0..N relative to the viewport? Or 0..N in the table?
     // "visible position... by grid row" implies 0-based index in the CURRENT VIEWPORT.
     viewportRowIndex: number | null; // 0-based index in the rendered window, null if not visible
+}
+
+// Doc for public interfaces of DataTable component moved from .svelte file, 
+// due to lack of tsdoc extractor for svelte components.
+export interface DataTable {
+    /** 
+     * Get the currently active cell.
+     * The active cell is the one currently highlighted by the keyboard navigation, 
+     * and is not necessarily *selected*.
+     * 
+     * @returns {ActiveCellInfo | null} The currently active cell, or null if no cell is active.
+    */
+    getActiveCell(): ActiveCellInfo | null;
+
+    /**
+     * Scroll the grid to make the specified row visible.
+     * 
+     * @param {number} index - 0-based index of the row in the full dataset.
+     * @param {string} [columnName] - Optional name of the column to focus/mark as active.
+     */
+    scrollToRow(index: number, columnName?: string): void;
 }
 
 

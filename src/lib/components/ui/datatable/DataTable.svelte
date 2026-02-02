@@ -724,15 +724,7 @@
         }
     }
 
-    /** 
-     * Get the currently active cell.
-     * The active cell is the one currently highlighted by the keyboard navigation, 
-     * and is not necessarily *selected*.
-     * 
-     * @returns {ActiveCellInfo | null} The currently active cell, or null if no cell is active.
-     * 
-     * TODO: why isn't this a prop?
-    */
+    // Doc for this public interface moved to DataTableTypes.ts due to lack of tsdoc extractor for svelte components.
     export function getActiveCell(): ActiveCellInfo | null {
         if (data.length === 0) return null;
         
@@ -755,6 +747,7 @@
         };
     }
 
+    // Doc for this public interface moved to DataTableTypes.ts due to lack of tsdoc extractor for svelte components.
     export function scrollToRow(index: number, columnName?: string) {
         // Update active row
         activeRowIndex = index;
