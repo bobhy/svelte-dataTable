@@ -6,7 +6,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
     wrappable: 'none',
     maxLines: 2,
     justify: 'left',
-    maxWidth: 150,
+    maxChars: 9,    // wide enough for a date or dollar amount
     formatter: (value: any) => String(value ?? '')
 } as const;
 
@@ -19,7 +19,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
  * @property {'none' | 'word' | 'hard'} [wrappable] - Whether the column is wrappable. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.wrappable}
  * @property {number} [maxLines] - If wrapping a column, the maximum number of lines the row can use. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.maxLines}
  * @property {'left' | 'center' | 'right'} [justify] - The justification of the column. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.justify}
- * @property {number} [maxWidth] - The maximum width of the column. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.maxWidth}
+ * @property {number} [maxChars] - The maximum width of the column in characters. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.maxChars}
  * @property {(value: any) => string} [formatter] - convert/format column value from data source to table. {@defaultLink DEFAULT_DATA_TABLE_COLUMN.formatter}
  * @property {(value: any) => string[]} [validator] - validate user-entered value. Returns error messages.
  * @property {() => string[]} [enumValues] - List of legal values for select fields.
@@ -40,7 +40,7 @@ export interface DataTableColumn {
     wrappable?: 'none' | 'word' | 'hard';
     maxLines?: number;
     justify?: 'left' | 'center' | 'right';
-    maxWidth?: number;
+    maxChars?: number;
     formatter?: (value: any) => string;
     validator?: (value: any) => string[];
     enumValues?: () => string[];

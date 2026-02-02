@@ -69,7 +69,7 @@
     let fetchErrorCount = $state(0);
     const MAX_FETCH_RETRIES = 10;
     let sorting = $state<SortingState>([]);
-    let columnSizing = $state({});
+    let columnSizing = $state<Record<string, number>>({});
     let columnSizingInfo = $state<any>({});
     let columnPinning = $state({ left: [], right: [] });
 
@@ -138,6 +138,8 @@
     let findPrevButton = $state<HTMLButtonElement>();
     let findNextButton = $state<HTMLButtonElement>();
 
+    const CHAR_WIDTH_REM = 1; // 1rem approx width of 'M'
+
     // Selection & Editing
     let selectedRowIndices = $state<Set<number>>(new Set());
 
@@ -195,7 +197,8 @@
                     header: col.title || col.name,
                     enableSorting: col.isSortable,
                     enableResizing: true,
-                    size: col.maxWidth,
+                    // Use rem units for initial column width (assuming 1rem = 16px for the engine)
+                    size: (col.maxChars || 20) * CHAR_WIDTH_REM * 16,
                     meta: { config: col },
                     cell: (info: any) => {
                         const val = info.getValue();
@@ -1164,18 +1167,37 @@
         <div class="flex w-full min-w-max">
             {#each headerGroups as headerGroup}
                 {#each headerGroup.headers as header}
+                    {@const colConfig = (header.column.columnDef.meta as any)
+                        ?.config as DataTableColumn}
                     <div
-                        class="px-4 py-3 text-left font-medium flex items-center gap-1 border-r border-transparent hover:border-border/50 shrink-0 relative group"
-                        style="width: {getColumnWidth(
-                            header.column.id,
-                            columnSizing,
-                            header.getSize(),
-                        )}px;"
+                        class={cn(
+                            "px-4 py-3 font-medium flex items-center gap-1 border-r border-transparent hover:border-border/50 shrink-0 relative group",
+                            colConfig?.justify === "center"
+                                ? "justify-center text-center"
+                                : colConfig?.justify === "right"
+                                  ? "justify-end text-right"
+                                  : "justify-start text-left",
+                        )}
+                        style="width: {columnSizing[header.column.id]
+                            ? getColumnWidth(
+                                  header.column.id,
+                                  columnSizing,
+                                  header.getSize(),
+                              ) + 'px'
+                            : (header.column.columnDef.meta as any)?.config
+                                  ?.maxChars + 'rem'};"
                     >
                         {#if !header.isPlaceholder}
                             <button
                                 type="button"
-                                class="truncate w-full text-left flex items-center gap-1"
+                                class={cn(
+                                    "truncate w-full flex items-center gap-1",
+                                    colConfig?.justify === "center"
+                                        ? "justify-center text-center"
+                                        : colConfig?.justify === "right"
+                                          ? "justify-end text-right"
+                                          : "justify-start text-left",
+                                )}
                                 onclick={() => (showSortDialog = true)}
                             >
                                 <FlexRender
@@ -1298,7 +1320,11 @@
                                             : "flex items-center",
                                         cellStyle.cellClasses,
                                     )}
-                                    style="width: {_size}px; {cellStyle.cellStyles}"
+                                    style="width: {columnSizing[cell.column.id]
+                                        ? _size + 'px'
+                                        : (colConfig?.maxChars ||
+                                              DEFAULT_DATA_TABLE_COLUMN.maxChars) +
+                                          'rem'}; {cellStyle.cellStyles}"
                                     role="gridcell"
                                 >
                                     <div

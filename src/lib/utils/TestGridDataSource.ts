@@ -80,7 +80,7 @@ export class TestGridDataSource {
             title: `Column ${i}`,
             isSortable: true,
             // Fixed width helpful for layout tests
-            maxWidth: 100
+            maxChars: 12
         }));
     }
 }
