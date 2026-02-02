@@ -66,6 +66,8 @@
     let backendHasMore = $state(true);
     let hasMore = $state(true); // Whether more matches are possible
     let isLoading = $state(false);
+    let fetchErrorCount = $state(0);
+    const MAX_FETCH_RETRIES = 10;
     let sorting = $state<SortingState>([]);
     let columnSizing = $state({});
     let columnSizingInfo = $state<any>({});
@@ -97,6 +99,7 @@
                     backendHasMore = true;
                     hasMore = true;
                     isLoading = false;
+                    fetchErrorCount = 0; // Reset error count on user interaction
                     const instance = get(virtualizerStore);
                     if (instance) instance.setOptions({ count: 0 });
                     performFetch(0, actualConfig.maxVisibleRows);
@@ -523,6 +526,8 @@
                 hasMore = false;
             }
 
+            fetchErrorCount = 0; // Success!
+
             // Debug: Log state after forward fetch
 
             // If we hit the batch limit but still have more to check, ensure we remain in a valid state
@@ -572,6 +577,12 @@
             }
         } catch (e) {
             console.error("Internal fetch error:", e);
+            fetchErrorCount++;
+            if (fetchErrorCount >= MAX_FETCH_RETRIES) {
+                console.error(
+                    `DataTable: Max fetch retries (${MAX_FETCH_RETRIES}) reached. Stopping automatic fetches to prevent infinite loop.`,
+                );
+            }
         } finally {
             // Log unconditionally for debug
             const lastIdx =
@@ -630,7 +641,11 @@
             }
         }
 
-        if (missingStart !== -1 && !isLoading) {
+        if (
+            missingStart !== -1 &&
+            !isLoading &&
+            fetchErrorCount < MAX_FETCH_RETRIES
+        ) {
             // Re-fetch missing data (could be pruned or never fetched)
             // This must work even when hasMore=false for end-of-data scenarios
 
@@ -639,7 +654,8 @@
         } else if (
             !isLoading &&
             hasMore &&
-            end >= matchedIndices.length - 100
+            end >= matchedIndices.length - 100 &&
+            fetchErrorCount < MAX_FETCH_RETRIES
         ) {
             // Pre-fetch new data if approaching end
             // console.log(`[Effect] Near end. calling performFetch`);
