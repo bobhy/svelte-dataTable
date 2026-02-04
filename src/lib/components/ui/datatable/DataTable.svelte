@@ -150,10 +150,20 @@
     let editingRow: any = $state(null);
     let isEditDialogOpen = $state(false);
 
-    async function handleRowEdit(action: RowAction, formData: any) {
+    async function handleRowEdit(
+        action: RowAction,
+        formData: any,
+        originalRow?: any,
+        keyColumn?: string,
+    ) {
         if (!onRowEdit) return { error: "No edit handler defined" };
 
-        const result = await onRowEdit(action, formData);
+        const result = await onRowEdit(
+            action,
+            formData,
+            originalRow,
+            keyColumn,
+        );
 
         if (result === true) {
             const keyCol = actualConfig.keyColumn;

@@ -187,4 +187,99 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
 
         // Additional tests (sorting, keyboard navigation, etc.) can be added similarly.
     });
+
+    describe('Row Editing', () => {
+        let onRowEditMock: ReturnType<typeof vi.fn>;
+        // Use a test config that enables editing
+        const editConfig: DataTableConfig = {
+            name: 'edit-test-grid',
+            keyColumn: 'id',
+            title: 'Edit Test Grid',
+            maxVisibleRows: 20,
+            isEditable: true,
+            columns: [
+                { name: 'id', title: 'ID', isSortable: true },
+                { name: 'name', title: 'Name', isSortable: true },
+            ]
+        };
+
+        beforeEach(() => {
+            testData = generateTestData(5);
+            dataSourceMock = vi.fn(async (_, startRow, numRows) => {
+                return testData.slice(startRow, startRow + numRows);
+            });
+            onRowEditMock = vi.fn().mockResolvedValue(true);
+        });
+
+
+        it('should pass originalRow and keyColumn to onRowEdit callback', async () => {
+            const user = (userEvent as any).setup();
+            const { container } = render(DataTable, {
+                config: editConfig,
+                dataSource: dataSourceMock as DataSourceCallback,
+                onRowEdit: onRowEditMock as any
+            });
+
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+
+            // Open edit dialog for first row (double click)
+            const firstRow = container.querySelectorAll('[role="row"]')[1]; // Skip header
+            expect(firstRow).toBeTruthy();
+
+            await user.click(firstRow);
+            await user.dblClick(firstRow);
+
+            // Wait for dialog
+            await screen.findByRole('heading', { name: "Edit Row" }, { timeout: 3000 });
+
+            // 1. Test Unchanged Key
+            // Click "Save Changes" without modifying anything
+            const saveBtn = await screen.findByRole('button', { name: "Save Changes" });
+            await user.click(saveBtn);
+
+            expect(onRowEditMock).toHaveBeenLastCalledWith(
+                'update',
+                expect.objectContaining({ id: 1, name: 'Item 1' }), // new row (unchanged)
+                expect.objectContaining({ id: 1, name: 'Item 1' }), // original row
+                'id' // key column
+            );
+        });
+
+        it('should pass originalRow and keyColumn when key is modified', async () => {
+            const user = (userEvent as any).setup();
+            const { container } = render(DataTable, {
+                config: editConfig,
+                dataSource: dataSourceMock as DataSourceCallback,
+                onRowEdit: onRowEditMock as any
+            });
+
+            await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+
+            // Open edit dialog for first row
+            const firstRow = container.querySelectorAll('[role="row"]')[1];
+            await user.click(firstRow);
+            await user.dblClick(firstRow);
+
+            // Wait for dialog
+            await screen.findByRole('heading', { name: "Edit Row" }, { timeout: 3000 });
+
+            // Modify the ID (key column)
+            // Use placeholder text as it might be safer than label association in test env
+            const idInput = await screen.findByPlaceholderText('ID');
+            await user.clear(idInput);
+            await user.type(idInput, '999');
+
+            // Save
+            const saveBtn = await screen.findByRole('button', { name: "Save Changes" });
+            await user.click(saveBtn);
+
+            expect(onRowEditMock).toHaveBeenLastCalledWith(
+                'update',
+                expect.objectContaining({ id: '999', name: 'Item 1' }), // new row with new ID
+                expect.objectContaining({ id: 1, name: 'Item 1' }),   // original row preserved
+                'id'
+            );
+        });
+    });
 });
+
