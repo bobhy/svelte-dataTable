@@ -119,15 +119,25 @@ export interface SortKey {
 }
 
 /**
- * Callback to update data source when user edits data in the table
+ * Callback to update data source when user edits data in the table.
+ *  
+ * The point of providing `originalRow` is to allow the callback to select the original
+ * record in the data source to delete or update if the user changes the primary key field
+ * when editing the form.
+ * If the back end is a relational database, it can maintain referential integrity
+ * automagically via constraint `ON UPDATE CASCADE` and `ON DELETE SET DEFAULT`. 
  * 
  * @param action - The action to perform.
  * @param row - The row to edit.
+ * @param originalRow - The original row before edits (create: null, update, delete: original object)
+ * @param keyColumn - The name of the primary key column from config
  * @returns A promise that resolves to a boolean or an object with an error property.
  */
 export type RowEditCallback = (
-    action: RowAction,
-    row: any
+    action: RowEditAction,
+    row: any,
+    originalRow?: any, // The original row before edits (for 'update')
+    keyColumn?: string // The name of the PK column
 ) => Promise<RowEditResult>;
 
 /**
@@ -135,7 +145,7 @@ export type RowEditCallback = (
  * 
  * @property {'update' | 'create' | 'delete'} action - The action to perform.
  */
-export type RowAction = 'update' | 'create' | 'delete';
+export type RowEditAction = 'update' | 'create' | 'delete';
 
 /**
  * RowEditResult
