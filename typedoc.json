@@ -17,5 +17,26 @@
     ],
     "includeVersion": true,
     "excludeExternals": true,
-    "githubPages": false
+    "githubPages": false,
+    "highlightLanguages": [
+        "typescript",
+        "javascript",
+        "json",
+        "html",
+        "css",
+        "go",
+        "sql",
+        "markdown",
+        "toml",
+        "http",
+        "xml",
+        "csv",
+        "svelte",
+        "tsx",
+        "ts",
+        "js",
+        "html",
+        "css",
+        "go"
+    ]
 }

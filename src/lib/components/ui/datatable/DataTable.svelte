@@ -1,4 +1,28 @@
+<!--
+@component
+-->
+
 <script lang="ts">
+    /**
+A viewer and editor for tablular data.
+
+Supports:
+- Infinite scrolling with keyboard navigation
+- Sort by multiple columns
+- Filtering and finding
+- Editing (single row at a time)
+- Column resizing and column pinning
+- Callbacks for fetching from and editing data in any source
+
+Not a data "grid".  Unlikely to ever support column reordering, grouping, aggregation, etc.
+ 
+@todo
+- Validate that data source actually provides the columns named in config.
+- Support bulk edit: select a rectangle, collect 1 value for each col and update *all* rows with those values.
+
+
+*/
+
     import {
         createTable,
         getCoreRowModel,
@@ -1115,6 +1139,7 @@
 </script>
 
 <div
+    id={config.name}
     class={cn(
         "flex flex-col h-full w-full border rounded-md overflow-hidden bg-background relative",
         className,

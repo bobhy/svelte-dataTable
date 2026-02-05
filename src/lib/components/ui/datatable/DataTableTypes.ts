@@ -1,3 +1,82 @@
+
+/**
+View and edit tabular data
+
+Supports:
+
+- Infinite scrolling with keyboard navigation
+- Sort by multiple columns
+- Filtering and finding
+- Editing (single row at a time)
+- Column resizing and column pinning
+- Callbacks for fetching from and editing data in any source
+
+Not a data "grid". Unlikely to ever support column reordering, grouping,
+aggregation, etc.
+
+todo's:
+- Validate that data source actually provides the columns named in config.
+- Support bulk edit: select a rectangle, collect 1 value for each col and update
+  all rows with those values.
+
+@example
+```svelte
+<script lang="ts">
+    import { DataTable } from 'datatable';
+    import type { DataTableConfig, DataSourceCallback, RowEditResult } from 'datatable';
+
+    const config: DataTableConfig = {
+        name: 'yourSourceView',
+        keyColumn: 'name',
+        isEditable: true,
+        isFilterable: true,
+        columns: [
+            { name: 'name', isSortable: true },
+            { name: 'age', isSortable: true,
+                formatter: (value: number) => `${value} years young` }
+        ]
+    };
+
+    const dataSource: DataSourceCallback = async (columnKeys, startRow, numRows, sortKeys) => {
+        // Fetch data from your source
+        return [];
+    };
+
+    const handleRowEdit = async (action: RowEditAction, row: any, oldRow: any): Promise<RowEditResult> => {
+        // Handle row edit
+        return true;
+    };
+</script>
+
+<div class="w-full p-4">
+    <DataTable {config} {dataSource} onRowEdit={handleRowEdit} />
+</div>
+```
+
+See {@link DataTableProps}
+
+ */
+export interface DataTable {
+    /** 
+     * Get the currently active cell.
+     * The active cell is the one currently highlighted by the keyboard navigation, 
+     * and is not necessarily *selected*.
+     * 
+     * @returns {ActiveCellInfo | null} The currently active cell, or null if no cell is active.
+    */
+    getActiveCell(): ActiveCellInfo | null;
+
+    /**
+     * Scroll the grid to make the specified row visible.
+     * 
+     * @param {number} index - 0-based index of the row in the full dataset.
+     * @param {string} [columnName] - Optional name of the column to focus/mark as active.
+     */
+    scrollToRow(index: number, columnName?: string): void;
+}
+
+
+
 /**
  * Default values for a {@link DataTableColumn}
  */
@@ -11,7 +90,7 @@ export const DEFAULT_DATA_TABLE_COLUMN = {
 } as const;
 
 /**
- * DataTable Column Definition
+ * Definition for one column of a {@link DataTable}
  * 
  * @property {string} name - Column name in data source (key).
  * @property {string} [title] - Column title (display name).<br>Default is name in title case.
@@ -57,17 +136,17 @@ export const DEFAULT_DATA_TABLE_CONFIG = {
 } as const;
 
 /**
- * DataTable Config
+ * Configuration for a {@link DataTable}
  * 
- * @property {string} name - The name of the config.
- * @property {string} keyColumn - The key column of the config.
- * @property {string} [title] - The title of the config.
+ * @property {string} name - The name of the dataTable (id in the DOM).
+ * @property {string} keyColumn - The key column. Values must be unique in the table (for view optimization) and column must be unique primary key in data source (for row update/delete).
+ * @property {string} [title] - The title of the table.
  * @property {number} [maxVisibleRows] - The maximum number of visible rows. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.maxVisibleRows}
- * @property {boolean} [isFilterable] - Whether the config is filterable. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFilterable}
- * @property {boolean} [isFindable] - Whether the config is findable. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFindable}
- * @property {boolean} [isEditable] - Whether the config is editable. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isEditable}
- * @property {DataTableColumn[]} columns - The columns of the config.
- * @property {(row: any) => string[]} [rowValidator] - The row validator of the config. Returns error messages.
+ * @property {boolean} [isFilterable] - Enables incremental filtering. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFilterable}
+ * @property {boolean} [isFindable] - Enables incremental find. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFindable}
+ * @property {boolean} [isEditable] - Enables row editing. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isEditable}
+ * @property {DataTableColumn[]} columns - Individual column definitions.
+ * @property {(row: any) => string[]} [rowValidator] - Does form-level validation when editing a row.
  * 
  * @example
  * ```typescript
@@ -92,7 +171,7 @@ export interface DataTableConfig {
 }
 
 /**
- * DataTable callback to fetch data
+ * Callback to fetch data
  * 
  * @param columnKeys - The column keys.
  * @param startRow - The start row.
@@ -148,14 +227,14 @@ export type RowEditCallback = (
 export type RowEditAction = 'update' | 'create' | 'delete';
 
 /**
- * RowEditResult
+ * Return from applying a row edit to the data source
  * 
  * @property {boolean | { error: string }} result - The result of the row edit.
  */
 export type RowEditResult = boolean | { error: string };
 
 /**
- * DataTable Props
+ * Props for a {@link DataTable}
  * 
  * @property {DataTableConfig} config - The config of the table.
  * @property {DataSourceCallback} dataSource - The data source of the table.
@@ -190,27 +269,6 @@ export interface ActiveCellInfo {
     // "Grid Row" usually means 0..N relative to the viewport? Or 0..N in the table?
     // "visible position... by grid row" implies 0-based index in the CURRENT VIEWPORT.
     viewportRowIndex: number | null; // 0-based index in the rendered window, null if not visible
-}
-
-// Doc for public interfaces of DataTable component moved from .svelte file, 
-// due to lack of tsdoc extractor for svelte components.
-export interface DataTable {
-    /** 
-     * Get the currently active cell.
-     * The active cell is the one currently highlighted by the keyboard navigation, 
-     * and is not necessarily *selected*.
-     * 
-     * @returns {ActiveCellInfo | null} The currently active cell, or null if no cell is active.
-    */
-    getActiveCell(): ActiveCellInfo | null;
-
-    /**
-     * Scroll the grid to make the specified row visible.
-     * 
-     * @param {number} index - 0-based index of the row in the full dataset.
-     * @param {string} [columnName] - Optional name of the column to focus/mark as active.
-     */
-    scrollToRow(index: number, columnName?: string): void;
 }
 
 

@@ -221,13 +221,13 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             });
 
             await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+            await waitFor(() => expect(container.querySelectorAll('[role="row"]').length).toBeGreaterThan(0));
 
-            // Open edit dialog for first row (double click)
-            const firstRow = container.querySelectorAll('[role="row"]')[1]; // Skip header
+            // Open edit dialog for first row
+            const firstRow = container.querySelectorAll('[role="row"]')[0];
             expect(firstRow).toBeTruthy();
 
-            await user.click(firstRow);
-            await user.dblClick(firstRow);
+            await fireEvent.dblClick(firstRow);
 
             // Wait for dialog
             await screen.findByRole('heading', { name: "Edit Row" }, { timeout: 3000 });
@@ -254,11 +254,11 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             });
 
             await waitFor(() => expect(dataSourceMock).toHaveBeenCalled());
+            await waitFor(() => expect(container.querySelectorAll('[role="row"]').length).toBeGreaterThan(0));
 
             // Open edit dialog for first row
-            const firstRow = container.querySelectorAll('[role="row"]')[1];
-            await user.click(firstRow);
-            await user.dblClick(firstRow);
+            const firstRow = container.querySelectorAll('[role="row"]')[0];
+            await fireEvent.dblClick(firstRow);
 
             // Wait for dialog
             await screen.findByRole('heading', { name: "Edit Row" }, { timeout: 3000 });
@@ -266,8 +266,7 @@ describe('DataTable Component - Navigation and Filtering Integration Tests', () 
             // Modify the ID (key column)
             // Use placeholder text as it might be safer than label association in test env
             const idInput = await screen.findByPlaceholderText('ID');
-            await user.clear(idInput);
-            await user.type(idInput, '999');
+            await fireEvent.input(idInput, { target: { value: '999' } });
 
             // Save
             const saveBtn = await screen.findByRole('button', { name: "Save Changes" });
