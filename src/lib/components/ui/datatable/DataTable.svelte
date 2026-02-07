@@ -1286,7 +1286,10 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
     <div
         bind:this={tableContainer}
         class="flex-1 overflow-auto w-full relative outline-none focus:ring-2 focus:ring-primary/20"
-        style="scrollbar-gutter: stable;"
+        style="scrollbar-gutter: stable; max-height: {actualConfig.maxVisibleRows &&
+        actualConfig.maxVisibleRows > 0
+            ? `${actualConfig.maxVisibleRows * 40}px`
+            : '100%'};"
         role="grid"
         tabindex="0"
         onkeydown={handleKeyDown}

@@ -141,7 +141,9 @@ export const DEFAULT_DATA_TABLE_CONFIG = {
  * @property {string} name - The name of the dataTable (id in the DOM).
  * @property {string} keyColumn - The key column. Values must be unique in the table (for view optimization) and column must be unique primary key in data source (for row update/delete).
  * @property {string} [title] - The title of the table.
- * @property {number} [maxVisibleRows] - The maximum number of visible rows. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.maxVisibleRows}
+ * @property {number} [maxVisibleRows] - The maximum number of visible rows. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.maxVisibleRows}  
+ * If > 0, table will limit its height to that many rows.  
+ * If == 0, table will grow to fill its parent container (potentially trying  to render very many rows and causing sluggish performance.)
  * @property {boolean} [isFilterable] - Enables incremental filtering. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFilterable}
  * @property {boolean} [isFindable] - Enables incremental find. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isFindable}
  * @property {boolean} [isEditable] - Enables row editing. {@defaultLink DEFAULT_DATA_TABLE_CONFIG.isEditable}
