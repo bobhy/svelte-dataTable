@@ -126,7 +126,7 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
                     fetchErrorCount = 0; // Reset error count on user interaction
                     const instance = get(virtualizerStore);
                     if (instance) instance.setOptions({ count: 0 });
-                    performFetch(0, actualConfig.maxVisibleRows);
+                    performFetch(0, 20);
                 });
             };
 
@@ -571,7 +571,7 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
             // to cycle again (isLoading will clear in finally, triggering effects if still needed)
 
             // 3. Heuristic 2: Pruning (10 screens away)
-            const pageSize = actualConfig.maxVisibleRows || 20;
+            const pageSize = 20;
             const threshold = pageSize * 10;
 
             const keepIndices = new Set<number>();
@@ -658,9 +658,7 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
         if (matchedIndices.length === 0) {
             // Initial load
             if (hasMore && !isLoading) {
-                untrack(() =>
-                    performFetch(0, actualConfig.maxVisibleRows || 20),
-                );
+                untrack(() => performFetch(0, 20));
             }
             return;
         }
@@ -1286,10 +1284,7 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
     <div
         bind:this={tableContainer}
         class="flex-1 overflow-auto w-full relative outline-none focus:ring-2 focus:ring-primary/20"
-        style="scrollbar-gutter: stable; max-height: {actualConfig.maxVisibleRows &&
-        actualConfig.maxVisibleRows > 0
-            ? `${actualConfig.maxVisibleRows * 40}px`
-            : '100%'};"
+        style="scrollbar-gutter: stable; max-height: 100%;"
         role="grid"
         tabindex="0"
         onkeydown={handleKeyDown}

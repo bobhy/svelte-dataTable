@@ -18,10 +18,10 @@ test('datatable reacts to container resize', async ({ page }) => {
     await expect(gridContainer).toBeVisible();
 
     // Force initial height to 600px to match test assumptions
-    await page.evaluate(() => {
-        const el = document.getElementById('grid-container');
-        if (el) el.style.height = '600px';
-    });
+    // Force initial height to ~600px via viewport
+    // Overhead: p-10 (40px) + gap-4 (16px) + header (~40px) + p-4 (16px) ~= 112px?
+    // Let's set a safe viewport and measure.
+    await page.setViewportSize({ width: 1280, height: 750 });
     // Wait for resize observer
     await page.waitForTimeout(200);
 
@@ -51,10 +51,8 @@ test('datatable reacts to container resize', async ({ page }) => {
     // Expected rendered: 5 + overscan(5) = ~10.
 
     console.log('Resizing container to 300px...');
-    await page.evaluate(() => {
-        const el = document.getElementById('grid-container');
-        if (el) el.style.height = '300px';
-    });
+    console.log('Resizing container to ~300px (Viewport 450)...');
+    await page.setViewportSize({ width: 1280, height: 450 });
 
     // Wait for ResizeObserver and Reactivity (give it a moment)
     await page.waitForTimeout(500);
@@ -73,10 +71,8 @@ test('datatable reacts to container resize', async ({ page }) => {
     // Expected rendered: 17 + overscan(5) = ~22.
 
     console.log('Resizing container to 900px...');
-    await page.evaluate(() => {
-        const el = document.getElementById('grid-container');
-        if (el) el.style.height = '900px';
-    });
+    console.log('Resizing container to ~900px (Viewport 1050)...');
+    await page.setViewportSize({ width: 1280, height: 1050 });
 
     await page.waitForTimeout(500);
 
