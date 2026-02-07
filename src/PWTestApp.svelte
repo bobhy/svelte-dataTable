@@ -1,5 +1,6 @@
 <script lang="ts">
     import DataTable from "$lib/components/ui/datatable/DataTable.svelte";
+    import DataTableContainer from "$lib/components/ui/datatable/DataTableContainer.svelte";
     import type { DataTableConfig } from "$lib/components/ui/datatable/DataTableTypes.ts";
     import { TestGridDataSource } from "$lib/utils/TestGridDataSource.ts";
     import { onMount } from "svelte";
@@ -16,6 +17,10 @@
     let currentFilter = $state("");
     let onRowEdit: any = $state(undefined);
 
+    // Test configuration state
+    let scenario = $state("");
+    let useContainer = $state(true);
+
     // Test config injection interface
     interface TestConfig {
         config?: Partial<DataTableConfig>;
@@ -23,80 +28,112 @@
         cols?: number;
         latency?: number;
         scenario?: string;
+        useContainer?: boolean;
     }
 
     onMount(() => {
-        // Check for injected test configuration
-        const testConfig = (window as any).__TEST_CONFIG__ as
-            | TestConfig
-            | undefined;
+        try {
+            console.log("[PWTestApp] onMount started");
 
-        let rows = testConfig?.rows ?? 50;
-        let cols = testConfig?.cols ?? 5;
-        let latency = testConfig?.latency ?? 0;
-        const scenario = testConfig?.scenario;
+            // Check for injected test configuration
+            const testConfig = (window as any).__TEST_CONFIG__ as
+                | TestConfig
+                | undefined;
 
-        // Fallback to URL params if no injected config (legacy support or manual debug)
-        const params = new URLSearchParams(window.location.search);
-        if (!testConfig) {
-            if (params.get("scenario") === "scroll_by_pageup_down") {
-                rows = parseInt(params.get("rows") || "100");
-                cols = parseInt(params.get("cols") || "20");
+            let rows = testConfig?.rows ?? 50;
+            let cols = testConfig?.cols ?? 5;
+            let latency = testConfig?.latency ?? 0;
+
+            // Fallback or Override from URL params
+            const params = new URLSearchParams(window.location.search);
+
+            // Priority: Injected Config > URL Params > Defaults
+            scenario = testConfig?.scenario || params.get("scenario") || "";
+
+            // Handle boolean useContainer from params
+            const paramUseContainer = params.get("useContainer");
+            if (testConfig?.useContainer !== undefined) {
+                useContainer = testConfig.useContainer;
+            } else if (paramUseContainer !== null) {
+                useContainer = paramUseContainer === "true";
+            } else {
+                useContainer = true; // Default
             }
-            if (params.get("latency")) {
-                latency = parseInt(params.get("latency") || "0");
-            }
-        }
 
-        const ds = new TestGridDataSource(rows, cols, latency);
-        const baseCols = ds.getColumns();
+            console.log("[PWTestApp] Config:", {
+                scenario,
+                useContainer,
+                search: window.location.search,
+            });
 
-        let finalConfig: DataTableConfig = {
-            name: "test-grid",
-            keyColumn: "id",
-            title: scenario ? `Test: ${scenario}` : "PWTestApp",
-            isFilterable: true,
-            isFindable: true,
-            columns: baseCols,
-        };
-
-        // Apply overrides from test config
-        if (testConfig?.config) {
-            finalConfig = { ...finalConfig, ...testConfig.config };
-            // If columns are provided in config, use them, otherwise default to DS columns
-            if (testConfig.config.columns) {
-                finalConfig.columns = testConfig.config.columns;
-            }
-        }
-
-        if (testConfig?.config?.isEditable) {
-            onRowEdit = async (action: any, row: any) => {
-                if ((window as any).__onRowEdit) {
-                    return await (window as any).__onRowEdit(action, row);
+            if (!testConfig) {
+                if (params.get("scenario") === "scroll_by_pageup_down") {
+                    rows = parseInt(params.get("rows") || "100");
+                    cols = parseInt(params.get("cols") || "20");
                 }
-                return true;
+                if (params.get("latency")) {
+                    latency = parseInt(params.get("latency") || "0");
+                }
+            }
+
+            const ds = new TestGridDataSource(rows, cols, latency);
+            const baseCols = ds.getColumns();
+
+            let finalConfig: DataTableConfig = {
+                name: "test-grid",
+                keyColumn: "id",
+                title: scenario ? `Test: ${scenario}` : "PWTestApp",
+                isFilterable: true,
+                isFindable: true,
+                columns: baseCols,
             };
+
+            // Apply overrides from test config
+            if (testConfig?.config) {
+                finalConfig = { ...finalConfig, ...testConfig.config };
+                // If columns are provided in config, use them, otherwise default to DS columns
+                if (testConfig.config.columns) {
+                    finalConfig.columns = testConfig.config.columns;
+                }
+            }
+
+            if (testConfig?.config?.isEditable) {
+                onRowEdit = async (action: any, row: any) => {
+                    if ((window as any).__onRowEdit) {
+                        return await (window as any).__onRowEdit(action, row);
+                    }
+                    return true;
+                };
+            }
+
+            config = finalConfig;
+            dataSource = (
+                cols: string[],
+                start: number,
+                num: number,
+                sort: any[],
+            ) => ds.getRows(cols, start, num, sort);
+
+            isReady = true;
+            console.log("[PWTestApp] isReady set to true");
+
+            // Expose API for testing
+            (window as any).getDataTableActiveCell = () => {
+                return tableComponent?.getActiveCell();
+            };
+        } catch (err) {
+            console.error("[PWTestApp] onMount Error:", err);
         }
-
-        config = finalConfig;
-        dataSource = (
-            cols: string[],
-            start: number,
-            num: number,
-            sort: any[],
-        ) => ds.getRows(cols, start, num, sort);
-        isReady = true;
-
-        // Expose API for testing
-        (window as any).getDataTableActiveCell = () => {
-            return tableComponent?.getActiveCell();
-        };
     });
 </script>
 
 <div class="p-10 h-screen w-full flex flex-col gap-4">
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-bold">PWTestApp</h1>
+        <div id="debug-info" class="text-xs font-mono bg-gray-100 p-2">
+            Scenario: {scenario}, UseContainer: {useContainer}, Search: {window
+                .location.search}
+        </div>
     </div>
 
     {#if isReady}
@@ -116,21 +153,66 @@
                         <div
                             class="flex-1 flex flex-col min-h-0 bg-card rounded-xl border"
                         >
-                            <!-- Card.Root -->
-                            <div
-                                id="grid-container"
-                                class="flex-1 min-h-0 relative p-0"
-                            >
-                                <!-- Card.Content -->
-                                <DataTable
-                                    bind:this={tableComponent}
-                                    {config}
-                                    {dataSource}
-                                    bind:filterTerm={currentFilter}
-                                    {onRowEdit}
-                                    class="absolute inset-0 bg-background border-0"
-                                />
-                            </div>
+                            <!-- 
+                                Layout Test Logic:
+                                If scenario is 'layout-test', we simulate a specific "bad" parent.
+                                Otherwise we use the standard structure.
+                            -->
+                            {#if scenario === "layout-test"}
+                                <!-- Bad Parent: Missing relative, just specific size constraints or flex without relative -->
+                                <div
+                                    class="flex-1 min-h-0 border border-red-500 p-0"
+                                    id="bad-parent"
+                                >
+                                    {#if useContainer}
+                                        <DataTableContainer id="grid-container">
+                                            <DataTable
+                                                bind:this={tableComponent}
+                                                {config}
+                                                {dataSource}
+                                                bind:filterTerm={currentFilter}
+                                                {onRowEdit}
+                                                class="absolute inset-0 bg-background border-0"
+                                            />
+                                        </DataTableContainer>
+                                    {:else}
+                                        <!-- Broken State: DataTable absolute but direct parent not relative -->
+                                        <div
+                                            id="grid-container-raw"
+                                            class="w-full h-full"
+                                        >
+                                            <!-- Note: wrapping in a plain div to mimic 'no container component' structure if needed, 
+                                                 or just placing DataTable directly. 
+                                                 If we put absolute DataTable here, it will look for nearest relative ancestor.
+                                                 grid-container ID needed for test targeting.
+                                            -->
+                                            <DataTable
+                                                bind:this={tableComponent}
+                                                {config}
+                                                {dataSource}
+                                                bind:filterTerm={currentFilter}
+                                                {onRowEdit}
+                                                class="absolute inset-0 bg-background border-0"
+                                            />
+                                        </div>
+                                    {/if}
+                                </div>
+                            {:else}
+                                <!-- Standard App Flow (mimicking Import view fixed state) -->
+                                <div class="flex-1 min-h-0 relative p-0">
+                                    <!-- Card.Content -->
+                                    <DataTableContainer id="grid-container">
+                                        <DataTable
+                                            bind:this={tableComponent}
+                                            {config}
+                                            {dataSource}
+                                            bind:filterTerm={currentFilter}
+                                            {onRowEdit}
+                                            class="absolute inset-0 bg-background border-0"
+                                        />
+                                    </DataTableContainer>
+                                </div>
+                            {/if}
                         </div>
                     </div>
                 </div>

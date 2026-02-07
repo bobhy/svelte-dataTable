@@ -22,7 +22,7 @@ todo's:
 @example
 ```svelte
 <script lang="ts">
-    import { DataTable } from 'datatable';
+    import { DataTable, DataTableContainer } from 'datatable';
     import type { DataTableConfig, DataSourceCallback, RowEditResult } from 'datatable';
 
     const config: DataTableConfig = {
@@ -49,7 +49,9 @@ todo's:
 </script>
 
 <div class="w-full p-4">
-    <DataTable {config} {dataSource} onRowEdit={handleRowEdit} />
+    <DataTableContainer>
+        <DataTable {config} {dataSource} onRowEdit={handleRowEdit} />
+    </DataTableContainer>
 </div>
 ```
 
@@ -75,7 +77,16 @@ export interface DataTable {
     scrollToRow(index: number, columnName?: string): void;
 }
 
+/**
+ * Container for a {@link DataTable}
+ * 
+ * Allows table to fill parent container and react to changes in height.  
+ * If your app's container for DataTable already sets these styles, you don't need a DataTableContainer.
+ * @see DataTableContainer.svelte
+ */
+export interface DataTableContainer {
 
+}
 
 /**
  * Default values for a {@link DataTableColumn}
