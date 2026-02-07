@@ -1064,8 +1064,11 @@ Not a data "grid".  Unlikely to ever support column reordering, grouping, aggreg
     // Helpers
     function measureRow(node: HTMLElement, index: number) {
         // Initial measurement
-        const instance = get(virtualizerStore); // Store access is fine for non-reactive measure
-        instance.measureElement(node);
+        // OPTIMIZATION: Do NOT call measureElement synchronously here.
+        // It triggers a forced reflow (layout thrashing) for every row on mount.
+        // We rely on the ResizeObserver callback below to handle the first measurement asynchronously.
+        // const instance = get(virtualizerStore);
+        // instance.measureElement(node);
 
         // Watch for size changes (e.g. content loading, wrapping)
         const ro = new ResizeObserver((entries) => {
