@@ -1207,7 +1207,7 @@
                             <button
                                 type="button"
                                 class={cn(
-                                    "truncate w-full flex items-center gap-1",
+                                    "w-full flex items-center gap-1 whitespace-normal break-words",
                                     colConfig?.justify === "center"
                                         ? "justify-center text-center"
                                         : colConfig?.justify === "right"
