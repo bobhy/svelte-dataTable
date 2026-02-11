@@ -915,6 +915,22 @@
         }, 50);
     }
 
+    // Doc for this public interface moved to DataTableTypes.ts due to lack of tsdoc extractor for svelte components.
+    export function refresh() {
+        untrack(() => {
+            rawCache.clear();
+            matchedIndices = [];
+            backendOffset = 0;
+            backendHasMore = true;
+            hasMore = true;
+            isLoading = false;
+            fetchErrorCount = 0;
+            const instance = get(virtualizerStore);
+            if (instance) instance.setOptions({ count: 0 });
+            performFetch(0, 20);
+        });
+    }
+
     async function handleFind(
         direction: FindDirection,
         sourceElement?: HTMLElement,
