@@ -341,6 +341,10 @@
         measureElement: (el) =>
             el?.getBoundingClientRect().height ?? estimatedRowHeight,
         overscan: 5,
+        getItemKey: (index) => {
+            const rowIdx = matchedIndices[index];
+            return rowIdx !== undefined ? rowIdx : index;
+        },
     });
 
     // Reactive state derived from virtualizer store
@@ -393,6 +397,10 @@
                 measureElement: (el) =>
                     el?.getBoundingClientRect().height ?? estimatedRowHeight,
                 overscan: 5,
+                getItemKey: (index) => {
+                    const rowIdx = matchedIndices[index];
+                    return rowIdx !== undefined ? rowIdx : index;
+                },
             });
         });
     });
