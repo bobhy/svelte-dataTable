@@ -53,7 +53,20 @@
     // Sync data when opening
     $effect(() => {
         if (open && data) {
-            $form = { ...data };
+            const formData = { ...data };
+
+            // Apply formatters to initial values where applicable
+            columns.forEach((col) => {
+                if (
+                    col.formatter &&
+                    formData[col.name] !== undefined &&
+                    formData[col.name] !== null
+                ) {
+                    formData[col.name] = col.formatter(formData[col.name]);
+                }
+            });
+
+            $form = formData;
             fieldErrors = {};
             formErrors = [];
             $message = "";
@@ -238,18 +251,18 @@
                 <Button variant="outline" onclick={() => (open = false)}
                     >Cancel</Button
                 >
-                <Button
-                    variant="secondary"
-                    onclick={() => handleAction("create")}
-                    disabled={$delayed || hasErrors}
-                >
-                    Save as New
-                </Button>
+
                 <Button
                     onclick={() => handleAction("update")}
                     disabled={$delayed || hasErrors}
                 >
-                    Save Changes
+                    Update this row
+                </Button>
+                <Button
+                    onclick={() => handleAction("create")}
+                    disabled={$delayed || hasErrors}
+                >
+                    Save as new row
                 </Button>
             </div>
         </Dialog.Footer>
